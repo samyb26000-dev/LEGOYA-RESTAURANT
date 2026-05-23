@@ -36,7 +36,13 @@ function Logo({ size }) {
 }
 
 function Divider() {
-  return <div className="divider"><div className="divider-line"/><span className="divider-dot">✦</span><div className="divider-line"/></div>
+  return (
+    <div className="divider">
+      <div className="divider-line"/>
+      <span className="divider-dot">✦</span>
+      <div className="divider-line"/>
+    </div>
+  )
 }
 
 function SectionHeader({ label, title, subtitle }) {
@@ -61,7 +67,7 @@ function Nav({ section, setSection }) {
     return () => window.removeEventListener("scroll", fn)
   }, [])
   return (
-    <nav className={`nav ${scrolled ? "nav-scrolled" : "nav-top"}`}>
+    <nav className={`nav ${scrolled?"nav-scrolled":"nav-top"}`}>
       <button className="nav-brand" onClick={() => { setSection("accueil"); setOpen(false) }}>
         <Logo size={40} />
         <span>Le Goya</span>
@@ -72,7 +78,9 @@ function Nav({ section, setSection }) {
         ))}
       </div>
       <button className="nav-burger" onClick={() => setOpen(!open)}>
-        {[0,1,2].map(i => <span key={i} className="burger-line" style={{transform:open?(i===0?"rotate(45deg) translateY(6px)":i===1?"scaleX(0)":"rotate(-45deg) translateY(-6px)"):"none"}} />)}
+        {[0,1,2].map(i => (
+          <span key={i} className="burger-line" style={{transform:open?(i===0?"rotate(45deg) translateY(6px)":i===1?"scaleX(0)":"rotate(-45deg) translateY(-6px)"):"none"}} />
+        ))}
       </button>
       {open && (
         <div className="nav-mobile">
@@ -94,15 +102,22 @@ function Hero({ setSection }) {
       <div className="hero-line" style={{transform:"translateY(-140px)"}} />
       <div className="hero-line" style={{transform:"translateY(140px)"}} />
       <div className="hero-content" style={{opacity:v?1:0}}>
-        <div className="hero-logo-wrap"><Logo size={120} /></div>
+        <div className="hero-logo-wrap"><Logo size={200} /></div>
         <p className="hero-label">Restaurant Gastronomique</p>
-        <h1 className="hero-title">Le Goya</h1>
+        <h1 className="hero-title">
+          <span className="le">Le </span>
+          <span className="goya">Goya</span>
+        </h1>
         <div className="hero-divider">
           <div className="hero-divider-line"/>
           <span style={{color:"#C9A84C"}}>✦</span>
           <div className="hero-divider-line"/>
         </div>
-        <p className="hero-text">Une table exception.<br/>Chaque plat, une signature.<br/>Chaque moment, un souvenir.</p>
+        <p className="hero-text">
+          Une table d exception.<br/>
+          Chaque plat, une signature.<br/>
+          Chaque moment, un souvenir.
+        </p>
         <div className="hero-btns">
           <button className="btn-gold" onClick={() => setSection("reservation")}>Reserver une table</button>
           <button className="btn-ghost" onClick={() => setSection("menu")}>Voir le menu</button>
@@ -167,7 +182,7 @@ function MenuPage() {
 const EVT = [
   {t:"Soiree Privee",d:"Privatisez notre salle pour une occasion unique. Service dedie, menu sur mesure.",i:"🥂",s:"Jusqu a 40 couverts - Devis personnalise"},
   {t:"Mariage et Fiancailles",d:"Experience culinaire de vos noces avec une attention absolue.",i:"💍",s:"Buffet ou service a table"},
-  {t:"Anniversaire Prestige",d:"Celebrez chaque etape dans un ecrin d excellence. Menu degustation exclusif.",i:"✨",s:"A partir de 8 personnes"},
+  {t:"Anniversaire Prestige",d:"Celebrez chaque etape dans un ecrin d excellence.",i:"✨",s:"A partir de 8 personnes"},
   {t:"Seminaire Business",d:"Impressionnez vos clients autour d un dejeuner gastronomique.",i:"🤝",s:"Salons privatifs - Audiovisuel"},
 ]
 
@@ -217,7 +232,7 @@ function ReservationPage() {
         {[1,2,3].map(s => (
           <div key={s} className="step">
             <div className={`step-num ${step>=s?"step-active":"step-inactive"}`}>{s}</div>
-            <p className={`step-label ${step>=s?"step-label-active":"step-label-inactive"}`}>{s===1?"Date":"Infos"}</p>
+            <p className={`step-label ${step>=s?"step-label-active":"step-label-inactive"}`}>{s===1?"Date":s===2?"Infos":"Paiement"}</p>
             {s<3 && <div className={`step-line ${step>s?"step-line-done":"step-line-todo"}`} />}
           </div>
         ))}
@@ -278,7 +293,10 @@ function ReservationPage() {
               {[["Date",form.date],["Heure",form.time],["Couverts",form.guests],["Menu",sm?.label],["Nom",form.firstName+" "+form.lastName],["Email",form.email],["Tel",form.phone]].map(([l,v])=>(
                 <div key={l} className="recap-row"><span className="recap-key">{l}</span><span className="recap-val">{v}</span></div>
               ))}
-              <div className="recap-total"><span className="recap-total-label">Acompte</span><span className="recap-total-val">{sm?.acompte}€</span></div>
+              <div className="recap-total">
+                <span className="recap-total-label">Acompte</span>
+                <span className="recap-total-val">{sm?.acompte}€</span>
+              </div>
             </div>
             <div className="payment-box">
               <p className="payment-title">Paiement securise</p>
@@ -354,7 +372,12 @@ function Footer({ setSection }) {
 export default function LeGoyaApp() {
   const [section, setSection] = useState("accueil")
   const go = useCallback(s => { setSection(s); window.scrollTo({top:0,behavior:"smooth"}) }, [])
-  const pages = {accueil:<Hero setSection={go}/>,menu:<MenuPage/>,evenements:<EventsPage/>,reservation:<ReservationPage/>}
+  const pages = {
+    accueil: <Hero setSection={go} />,
+    menu: <MenuPage />,
+    evenements: <EventsPage />,
+    reservation: <ReservationPage />,
+  }
   return (
     <div className="goya-wrap">
       <GoldParticles/>
