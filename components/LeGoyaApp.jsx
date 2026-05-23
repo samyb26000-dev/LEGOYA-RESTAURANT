@@ -1,81 +1,56 @@
 "use client"
 import { useState, useEffect, useRef, useCallback } from "react"
 
-const SERIF = "'Cormorant Garamond', serif"
-
 function GoldParticles() {
   const ref = useRef(null)
   useEffect(() => {
-    const canvas = ref.current
-    const ctx = canvas.getContext("2d")
-    let W = (canvas.width = window.innerWidth)
-    let H = (canvas.height = window.innerHeight)
-    const pts = Array.from({ length: 80 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.5 + 0.3,
-      dx: (Math.random() - 0.5) * 0.25,
-      dy: -Math.random() * 0.4 - 0.05,
-      pulse: Math.random() * Math.PI * 2,
-    }))
+    const c = ref.current, ctx = c.getContext("2d")
+    let W = c.width = window.innerWidth, H = c.height = window.innerHeight
+    const pts = Array.from({length:80}, () => ({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.3,dx:(Math.random()-.5)*.25,dy:-Math.random()*.4-.05,p:Math.random()*Math.PI*2}))
     let raf
-    function draw() {
-      ctx.clearRect(0, 0, W, H)
+    const draw = () => {
+      ctx.clearRect(0,0,W,H)
       pts.forEach(p => {
-        p.pulse += 0.018; p.x += p.dx; p.y += p.dy
-        if (p.y < -5) p.y = H + 5
-        if (p.x < -5) p.x = W + 5
-        if (p.x > W + 5) p.x = -5
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(201,168,76,${0.12 + Math.sin(p.pulse) * 0.12})`
-        ctx.fill()
+        p.p+=.018; p.x+=p.dx; p.y+=p.dy
+        if(p.y<-5)p.y=H+5; if(p.x<-5)p.x=W+5; if(p.x>W+5)p.x=-5
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
+        ctx.fillStyle=`rgba(201,168,76,${.12+Math.sin(p.p)*.12})`; ctx.fill()
       })
       raf = requestAnimationFrame(draw)
     }
     draw()
-    const r = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
-    window.addEventListener("resize", r)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", r) }
+    const resize = () => { W=c.width=window.innerWidth; H=c.height=window.innerHeight }
+    window.addEventListener("resize", resize)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize) }
   }, [])
-  return <canvas ref={ref} style={{ position:"fixed", inset:0, zIndex:0, pointerEvents:"none", opacity:0.65 }} />
+  return <canvas ref={ref} className="goya-canvas" />
 }
 
-function Logo({ size = 60 }) {
+function Logo({ size }) {
   return (
-    <div style={{ position:"relative", width:size, height:size, display:"inline-flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-      <img src="/logo.png" alt="Le Goya" style={{ width:size, height:size, objectFit:"contain", position:"absolute", top:0, left:0 }} />
-      <div style={{ position:"absolute", top:"42%", left:"50%", width:size*0.22, height:size*0.22, borderRadius:"50%", border:"1.5px solid rgba(201,168,76,0.65)", animation:"spinO 3s linear infinite", pointerEvents:"none" }} />
+    <div className="logo-wrap" style={{width:size,height:size}}>
+      <img src="/logo.png" alt="Le Goya" className="logo-img" style={{width:size,height:size}} />
+      <div className="logo-ring" style={{width:size*.22,height:size*.22}} />
     </div>
   )
 }
 
 function Divider() {
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:16, margin:"0 auto", maxWidth:240, padding:"8px 0" }}>
-      <div style={{ flex:1, height:1, background:"rgba(201,168,76,0.3)" }} />
-      <span style={{ color:"#C9A84C", fontSize:14 }}>✦</span>
-      <div style={{ flex:1, height:1, background:"rgba(201,168,76,0.3)" }} />
-    </div>
-  )
+  return <div className="divider"><div className="divider-line"/><span className="divider-dot">✦</span><div className="divider-line"/></div>
 }
 
 function SectionHeader({ label, title, subtitle }) {
   return (
-    <div style={{ textAlign:"center", marginBottom:60 }}>
-      <p style={{ fontSize:10, letterSpacing:5, color:"#C9A84C", textTransform:"uppercase", marginBottom:20 }}>{label}</p>
-      <h2 style={{ fontFamily:SERIF, fontSize:"clamp(34px,5vw,58px)", fontWeight:300, color:"#F5F0E8", marginBottom:20, lineHeight:1.1 }}>{title}</h2>
+    <div className="sec-header">
+      <p className="sec-label">{label}</p>
+      <h2 className="sec-title">{title}</h2>
       <Divider />
-      {subtitle && <p style={{ marginTop:24, fontSize:13, color:"rgba(245,240,232,0.5)", maxWidth:480, margin:"24px auto 0", lineHeight:1.9 }}>{subtitle}</p>}
+      {subtitle && <p className="sec-sub">{subtitle}</p>}
     </div>
   )
 }
 
-const NAV = [
-  { k:"accueil", l:"Accueil" },
-  { k:"menu", l:"Menu" },
-  { k:"evenements", l:"Evenements" },
-  { k:"reservation", l:"Reserver" },
-]
+const NAV = [{k:"accueil",l:"Accueil"},{k:"menu",l:"Menu"},{k:"evenements",l:"Evenements"},{k:"reservation",l:"Reserver"}]
 
 function Nav({ section, setSection }) {
   const [scrolled, setScrolled] = useState(false)
@@ -86,25 +61,23 @@ function Nav({ section, setSection }) {
     return () => window.removeEventListener("scroll", fn)
   }, [])
   return (
-    <nav style={{ position:"fixed", top:0, left:0, right:0, zIndex:100, padding:scrolled?"10px 28px":"18px 28px", background:scrolled?"rgba(8,6,4,0.95)":"transparent", backdropFilter:scrolled?"blur(14px)":"none", borderBottom:scrolled?"1px solid rgba(201,168,76,0.15)":"none", display:"flex", alignItems:"center", justifyContent:"space-between", transition:"all .4s" }}>
-      <button onClick={() => { setSection("accueil"); setOpen(false) }} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+    <nav className={`nav ${scrolled ? "nav-scrolled" : "nav-top"}`}>
+      <button className="nav-brand" onClick={() => { setSection("accueil"); setOpen(false) }}>
         <Logo size={40} />
-        <span style={{ fontFamily:SERIF, fontSize:17, fontWeight:300, letterSpacing:5, color:"#C9A84C", textTransform:"uppercase" }}>Le Goya</span>
+        <span>Le Goya</span>
       </button>
-      <div className="nav-desktop" style={{ gap:28 }}>
-        {NAV.map(({ k, l }) => (
-          <button key={k} onClick={() => setSection(k)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, letterSpacing:3, color:section===k?"#C9A84C":"rgba(245,240,232,0.65)", textTransform:"uppercase", borderBottom:section===k?"1px solid #C9A84C":"1px solid transparent", paddingBottom:3, transition:"all .3s" }}>{l}</button>
+      <div className="nav-links">
+        {NAV.map(({k,l}) => (
+          <button key={k} onClick={() => setSection(k)} className={`nav-link ${section===k?"nav-link-active":"nav-link-inactive"}`}>{l}</button>
         ))}
       </div>
-      <button className="nav-burger" onClick={() => setOpen(!open)} style={{ background:"none", border:"none", cursor:"pointer", flexDirection:"column", gap:5, padding:4 }}>
-        {[0,1,2].map(i => (
-          <span key={i} style={{ display:"block", width:24, height:1, background:"#C9A84C", transform:open?(i===0?"rotate(45deg) translateY(6px)":i===1?"scaleX(0)":"rotate(-45deg) translateY(-6px)"):"none", transition:"all .3s" }} />
-        ))}
+      <button className="nav-burger" onClick={() => setOpen(!open)}>
+        {[0,1,2].map(i => <span key={i} className="burger-line" style={{transform:open?(i===0?"rotate(45deg) translateY(6px)":i===1?"scaleX(0)":"rotate(-45deg) translateY(-6px)"):"none"}} />)}
       </button>
       {open && (
-        <div style={{ position:"absolute", top:"100%", left:0, right:0, background:"rgba(8,6,4,0.98)", backdropFilter:"blur(20px)", borderBottom:"1px solid rgba(201,168,76,0.2)", display:"flex", flexDirection:"column", padding:"24px 28px 32px", gap:18 }}>
-          {NAV.map(({ k, l }) => (
-            <button key={k} onClick={() => { setSection(k); setOpen(false) }} style={{ background:"none", border:"none", cursor:"pointer", textAlign:"left", fontFamily:SERIF, fontSize:28, fontWeight:300, letterSpacing:2, color:section===k?"#C9A84C":"#F5F0E8" }}>{l}</button>
+        <div className="nav-mobile">
+          {NAV.map(({k,l}) => (
+            <button key={k} className="nav-mobile-link" onClick={() => { setSection(k); setOpen(false) }} style={{color:section===k?"#C9A84C":"#F5F0E8"}}>{l}</button>
           ))}
         </div>
       )}
@@ -116,27 +89,23 @@ function Hero({ setSection }) {
   const [v, setV] = useState(false)
   useEffect(() => { setTimeout(() => setV(true), 100) }, [])
   return (
-    <section style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden", padding:"0 24px" }}>
-      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse 80% 60% at 50% 50%,rgba(139,26,26,0.15) 0%,transparent 70%)" }} />
-      <div style={{ position:"absolute", top:"50%", left:"8%", right:"8%", height:1, background:"linear-gradient(90deg,transparent,rgba(201,168,76,0.25),transparent)", transform:"translateY(-140px)" }} />
-      <div style={{ position:"absolute", top:"50%", left:"8%", right:"8%", height:1, background:"linear-gradient(90deg,transparent,rgba(201,168,76,0.25),transparent)", transform:"translateY(140px)" }} />
-      <div style={{ textAlign:"center", position:"relative", zIndex:2, opacity:v?1:0, transition:"opacity 1.2s ease" }}>
-        <div style={{ marginBottom:28, display:"flex", justifyContent:"center", animation:"float 4s ease-in-out infinite" }}>
-          <Logo size={120} />
+    <section className="hero">
+      <div className="hero-bg1" />
+      <div className="hero-line" style={{transform:"translateY(-140px)"}} />
+      <div className="hero-line" style={{transform:"translateY(140px)"}} />
+      <div className="hero-content" style={{opacity:v?1:0}}>
+        <div className="hero-logo-wrap"><Logo size={120} /></div>
+        <p className="hero-label">Restaurant Gastronomique</p>
+        <h1 className="hero-title">Le Goya</h1>
+        <div className="hero-divider">
+          <div className="hero-divider-line"/>
+          <span style={{color:"#C9A84C"}}>✦</span>
+          <div className="hero-divider-line"/>
         </div>
-        <p style={{ fontSize:10, letterSpacing:6, color:"#C9A84C", textTransform:"uppercase", marginBottom:16 }}>Restaurant Gastronomique</p>
-        <h1 style={{ fontFamily:SERIF, fontSize:"clamp(52px,10vw,108px)", fontWeight:300, lineHeight:1, color:"#F5F0E8", letterSpacing:8, marginBottom:36 }}>Le Goya</h1>
-        <div style={{ display:"flex", alignItems:"center", gap:16, justifyContent:"center", marginBottom:36 }}>
-          <div style={{ flex:1, maxWidth:100, height:1, background:"rgba(201,168,76,0.3)" }} />
-          <span style={{ color:"#C9A84C" }}>✦</span>
-          <div style={{ flex:1, maxWidth:100, height:1, background:"rgba(201,168,76,0.3)" }} />
-        </div>
-        <p style={{ fontSize:13, color:"rgba(245,240,232,0.55)", lineHeight:1.9, maxWidth:360, margin:"0 auto 44px" }}>
-          Une table exception.<br />Chaque plat, une signature.<br />Chaque moment, un souvenir.
-        </p>
-        <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
-          <button onClick={() => setSection("reservation")} style={{ padding:"14px 34px", background:"transparent", border:"1px solid #C9A84C", color:"#C9A84C", fontSize:10, letterSpacing:4, textTransform:"uppercase", transition:"all .4s" }} onMouseEnter={e => { e.currentTarget.style.background="#C9A84C"; e.currentTarget.style.color="#080604" }} onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#C9A84C" }}>Reserver une table</button>
-          <button onClick={() => setSection("menu")} style={{ padding:"14px 34px", background:"transparent", border:"1px solid rgba(245,240,232,0.2)", color:"rgba(245,240,232,0.6)", fontSize:10, letterSpacing:4, textTransform:"uppercase", transition:"all .4s" }} onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(245,240,232,0.55)"; e.currentTarget.style.color="#F5F0E8" }} onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(245,240,232,0.2)"; e.currentTarget.style.color="rgba(245,240,232,0.6)" }}>Voir le menu</button>
+        <p className="hero-text">Une table exception.<br/>Chaque plat, une signature.<br/>Chaque moment, un souvenir.</p>
+        <div className="hero-btns">
+          <button className="btn-gold" onClick={() => setSection("reservation")}>Reserver une table</button>
+          <button className="btn-ghost" onClick={() => setSection("menu")}>Voir le menu</button>
         </div>
       </div>
     </section>
@@ -144,15 +113,15 @@ function Hero({ setSection }) {
 }
 
 const ITEMS = [
-  { cat:"Entrees", name:"Foie Gras Poele", desc:"Chutney de figues, brioche toastee, reduction de Porto", prix:"28", e:"🍞" },
-  { cat:"Entrees", name:"Tartare de Saint-Jacques", desc:"Agrumes, caviar de truite, huile de truffe blanche", prix:"32", e:"🐚" },
-  { cat:"Entrees", name:"Veloute de Champignons", desc:"Truffe noire, creme fouettee, huile de noisette", prix:"22", e:"🍄" },
-  { cat:"Plats", name:"Filet de Boeuf Rossini", desc:"Medaillon de foie gras, sauce Perigueux, legumes de saison", prix:"58", e:"🥩" },
-  { cat:"Plats", name:"Homard Bleu Roti", desc:"Beurre de corail, gnocchi de pomme de terre, bisque legere", prix:"72", e:"🦞" },
-  { cat:"Plats", name:"Pigeon en Croute Herbes", desc:"Jus de gibier, puree de celeri, cepes sautes", prix:"48", e:"🌿" },
-  { cat:"Desserts", name:"Souffle au Grand Marnier", desc:"Creme anglaise a la vanille Bourbon", prix:"18", e:"🍊" },
-  { cat:"Desserts", name:"Tarte Fine au Chocolat", desc:"Caramel sale, glace praline, feuille or", prix:"16", e:"🍫" },
-  { cat:"Desserts", name:"Mille-Feuille Revisite", desc:"Creme legere vanille, caramel beurre sale, framboises", prix:"15", e:"🍰" },
+  {cat:"Entrees",name:"Foie Gras Poele",desc:"Chutney de figues, brioche toastee, reduction de Porto",prix:"28",e:"🍞"},
+  {cat:"Entrees",name:"Tartare de Saint-Jacques",desc:"Agrumes, caviar de truite, huile de truffe blanche",prix:"32",e:"🐚"},
+  {cat:"Entrees",name:"Veloute de Champignons",desc:"Truffe noire, creme fouettee, huile de noisette",prix:"22",e:"🍄"},
+  {cat:"Plats",name:"Filet de Boeuf Rossini",desc:"Medaillon de foie gras, sauce Perigueux",prix:"58",e:"🥩"},
+  {cat:"Plats",name:"Homard Bleu Roti",desc:"Beurre de corail, gnocchi, bisque legere",prix:"72",e:"🦞"},
+  {cat:"Plats",name:"Pigeon en Croute Herbes",desc:"Jus de gibier, puree de celeri, cepes",prix:"48",e:"🌿"},
+  {cat:"Desserts",name:"Souffle Grand Marnier",desc:"Creme anglaise vanille Bourbon",prix:"18",e:"🍊"},
+  {cat:"Desserts",name:"Tarte Chocolat",desc:"Caramel sale, glace praline, feuille or",prix:"16",e:"🍫"},
+  {cat:"Desserts",name:"Mille-Feuille",desc:"Creme vanille, caramel beurre sale, framboises",prix:"15",e:"🍰"},
 ]
 
 function MenuPage() {
@@ -160,34 +129,34 @@ function MenuPage() {
   const [sel, setSel] = useState(null)
   const filtered = cat === "Tous" ? ITEMS : ITEMS.filter(i => i.cat === cat)
   return (
-    <section style={{ minHeight:"100vh", padding:"100px 20px 80px", position:"relative", zIndex:2 }}>
+    <section className="page-section">
       <SectionHeader label="Notre Carte" title="Le Menu" subtitle="Des produits exception, sublimes par le Chef." />
-      <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:44, flexWrap:"wrap" }}>
+      <div className="filter-bar">
         {["Tous","Entrees","Plats","Desserts"].map(c => (
-          <button key={c} onClick={() => setCat(c)} style={{ padding:"9px 18px", background:cat===c?"#C9A84C":"transparent", border:"1px solid", borderColor:cat===c?"#C9A84C":"rgba(201,168,76,0.3)", color:cat===c?"#080604":"rgba(245,240,232,0.6)", fontSize:10, letterSpacing:3, textTransform:"uppercase", transition:"all .3s" }}>{c}</button>
+          <button key={c} onClick={() => setCat(c)} className={`filter-btn ${cat===c?"filter-active":"filter-inactive"}`}>{c}</button>
         ))}
       </div>
-      <div style={{ maxWidth:960, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))", gap:2 }}>
-        {filtered.map((item, i) => (
-          <div key={i} onClick={() => setSel(item)} style={{ padding:"32px 26px", cursor:"pointer", background:"rgba(245,240,232,0.02)", border:"1px solid rgba(201,168,76,0.08)", transition:"all .4s" }} onMouseEnter={e => { e.currentTarget.style.background="rgba(201,168,76,0.06)"; e.currentTarget.style.borderColor="rgba(201,168,76,0.25)" }} onMouseLeave={e => { e.currentTarget.style.background="rgba(245,240,232,0.02)"; e.currentTarget.style.borderColor="rgba(201,168,76,0.08)" }}>
-            <div style={{ fontSize:28, marginBottom:12 }}>{item.e}</div>
-            <p style={{ fontSize:9, letterSpacing:3, color:"#C9A84C", textTransform:"uppercase", marginBottom:8 }}>{item.cat}</p>
-            <h3 style={{ fontFamily:SERIF, fontSize:20, fontWeight:400, color:"#F5F0E8", marginBottom:10 }}>{item.name}</h3>
-            <p style={{ fontSize:12, lineHeight:1.7, color:"rgba(245,240,232,0.45)", marginBottom:14 }}>{item.desc}</p>
-            <p style={{ fontFamily:SERIF, fontSize:19, color:"#C9A84C", fontStyle:"italic" }}>{item.prix}€</p>
+      <div className="menu-grid">
+        {filtered.map((item,i) => (
+          <div key={i} className="menu-card" onClick={() => setSel(item)}>
+            <div className="menu-emoji">{item.e}</div>
+            <p className="menu-cat">{item.cat}</p>
+            <h3 className="menu-name">{item.name}</h3>
+            <p className="menu-desc">{item.desc}</p>
+            <p className="menu-prix">{item.prix}€</p>
           </div>
         ))}
       </div>
       {sel && (
-        <div onClick={() => setSel(null)} style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(8,6,4,0.93)", backdropFilter:"blur(16px)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ maxWidth:420, width:"100%", padding:"44px 36px", border:"1px solid rgba(201,168,76,0.3)", background:"rgba(12,10,8,0.97)", textAlign:"center" }}>
-            <div style={{ fontSize:50, marginBottom:18 }}>{sel.e}</div>
-            <p style={{ fontSize:9, letterSpacing:4, color:"#C9A84C", textTransform:"uppercase", marginBottom:12 }}>{sel.cat}</p>
-            <h3 style={{ fontFamily:SERIF, fontSize:30, fontWeight:300, color:"#F5F0E8", marginBottom:16 }}>{sel.name}</h3>
+        <div className="modal-overlay" onClick={() => setSel(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-emoji">{sel.e}</div>
+            <p className="modal-cat">{sel.cat}</p>
+            <h3 className="modal-name">{sel.name}</h3>
             <Divider />
-            <p style={{ marginTop:18, fontSize:14, lineHeight:1.9, color:"rgba(245,240,232,0.6)" }}>{sel.desc}</p>
-            <p style={{ marginTop:22, fontFamily:SERIF, fontSize:26, color:"#C9A84C", fontStyle:"italic" }}>{sel.prix}€</p>
-            <button onClick={() => setSel(null)} style={{ marginTop:26, padding:"11px 26px", background:"transparent", border:"1px solid rgba(201,168,76,0.35)", color:"rgba(245,240,232,0.5)", fontSize:10, letterSpacing:3, textTransform:"uppercase" }}>Fermer</button>
+            <p className="modal-desc">{sel.desc}</p>
+            <p className="modal-prix">{sel.prix}€</p>
+            <button className="btn-close" onClick={() => setSel(null)}>Fermer</button>
           </div>
         </div>
       )}
@@ -196,37 +165,37 @@ function MenuPage() {
 }
 
 const EVT = [
-  { t:"Soiree Privee", d:"Privatisez notre salle pour une occasion unique. Service dedie, menu sur mesure.", i:"🥂", s:"Jusqu a 40 couverts - Devis personnalise" },
-  { t:"Mariage et Fiancailles", d:"Nous concevons l experience culinaire de vos noces avec une attention absolue.", i:"💍", s:"Buffet ou service a table - Coordination complete" },
-  { t:"Anniversaire Prestige", d:"Celebrez chaque etape dans un ecrin d excellence. Menu degustation exclusif.", i:"✨", s:"A partir de 8 personnes - Gateau inclus" },
-  { t:"Seminaire et Business", d:"Impressionnez vos clients autour d un dejeuner gastronomique d affaires.", i:"🤝", s:"Salons privatifs - Audiovisuel disponible" },
+  {t:"Soiree Privee",d:"Privatisez notre salle pour une occasion unique. Service dedie, menu sur mesure.",i:"🥂",s:"Jusqu a 40 couverts - Devis personnalise"},
+  {t:"Mariage et Fiancailles",d:"Experience culinaire de vos noces avec une attention absolue.",i:"💍",s:"Buffet ou service a table"},
+  {t:"Anniversaire Prestige",d:"Celebrez chaque etape dans un ecrin d excellence. Menu degustation exclusif.",i:"✨",s:"A partir de 8 personnes"},
+  {t:"Seminaire Business",d:"Impressionnez vos clients autour d un dejeuner gastronomique.",i:"🤝",s:"Salons privatifs - Audiovisuel"},
 ]
 
 function EventsPage() {
   return (
-    <section style={{ minHeight:"100vh", padding:"100px 20px 80px", position:"relative", zIndex:2 }}>
+    <section className="page-section">
       <SectionHeader label="Celebrations" title="Evenements Prives" subtitle="Votre evenement merite un cadre d exception." />
-      <div style={{ maxWidth:920, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:1, background:"rgba(201,168,76,0.08)" }}>
-        {EVT.map((ev, i) => (
-          <div key={i} style={{ padding:"40px 32px", background:"#080604", transition:"background .4s" }} onMouseEnter={e => e.currentTarget.style.background="rgba(201,168,76,0.04)"} onMouseLeave={e => e.currentTarget.style.background="#080604"}>
-            <div style={{ fontSize:36, marginBottom:20 }}>{ev.i}</div>
-            <h3 style={{ fontFamily:SERIF, fontSize:24, fontWeight:400, color:"#F5F0E8", marginBottom:12 }}>{ev.t}</h3>
-            <p style={{ fontSize:13, lineHeight:1.8, color:"rgba(245,240,232,0.5)", marginBottom:18 }}>{ev.d}</p>
-            <p style={{ fontSize:10, letterSpacing:2, color:"#C9A84C", textTransform:"uppercase" }}>{ev.s}</p>
+      <div className="evt-grid">
+        {EVT.map((ev,i) => (
+          <div key={i} className="evt-card">
+            <div className="evt-icon">{ev.i}</div>
+            <h3 className="evt-title">{ev.t}</h3>
+            <p className="evt-desc">{ev.d}</p>
+            <p className="evt-sub">{ev.s}</p>
           </div>
         ))}
       </div>
-      <div style={{ textAlign:"center", marginTop:52 }}>
-        <a href="mailto:contact@legoya.fr" style={{ display:"inline-block", padding:"14px 40px", border:"1px solid #C9A84C", color:"#C9A84C", fontSize:10, letterSpacing:4, textTransform:"uppercase", textDecoration:"none" }}>Nous contacter</a>
+      <div className="evt-cta">
+        <a href="mailto:contact@legoya.fr" className="btn-gold" style={{textDecoration:"none",display:"inline-block"}}>Nous contacter</a>
       </div>
     </section>
   )
 }
 
 const MENUS_R = [
-  { id:"classique", label:"Menu Classique", prix:"85", acompte:"25" },
-  { id:"prestige", label:"Menu Prestige", prix:"135", acompte:"40" },
-  { id:"degustation", label:"Menu Degustation", prix:"175", acompte:"55" },
+  {id:"classique",label:"Menu Classique",prix:"85",acompte:"25"},
+  {id:"prestige",label:"Menu Prestige",prix:"135",acompte:"40"},
+  {id:"degustation",label:"Menu Degustation",prix:"175",acompte:"55"},
 ]
 const TIMES_R = ["12:00","12:30","13:00","19:00","19:30","20:00","20:30","21:00"]
 
@@ -234,120 +203,116 @@ function ReservationPage() {
   const [step, setStep] = useState(1)
   const [paid, setPaid] = useState(false)
   const [sending, setSending] = useState(false)
-  const [form, setForm] = useState({ date:"", time:"", guests:"2", firstName:"", lastName:"", email:"", phone:"", notes:"", menu:"classique" })
-  const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const [form, setForm] = useState({date:"",time:"",guests:"2",firstName:"",lastName:"",email:"",phone:"",notes:"",menu:"classique"})
+  const up = (k,v) => setForm(f => ({...f,[k]:v}))
   const sm = MENUS_R.find(m => m.id === form.menu)
-  const iS = { width:"100%", padding:"12px 14px", background:"rgba(245,240,232,0.04)", border:"1px solid rgba(201,168,76,0.2)", color:"#F5F0E8", fontSize:13, outline:"none" }
-  const lS = { fontSize:10, letterSpacing:3, color:"#C9A84C", textTransform:"uppercase", display:"block", marginBottom:8 }
-  const pay = async () => { setSending(true); await new Promise(r => setTimeout(r, 1500)); setSending(false); setPaid(true) }
+  const pay = async () => { setSending(true); await new Promise(r => setTimeout(r,1500)); setSending(false); setPaid(true) }
+  const ok1 = form.date && form.time
+  const ok2 = form.firstName && form.email && form.phone
 
   return (
-    <section style={{ minHeight:"100vh", padding:"100px 20px 80px", position:"relative", zIndex:2 }}>
+    <section className="page-section">
       <SectionHeader label="Reservation" title="Votre Table" />
-      <div style={{ display:"flex", justifyContent:"center", maxWidth:520, margin:"0 auto 44px" }}>
+      <div className="steps">
         {[1,2,3].map(s => (
-          <div key={s} style={{ flex:1, display:"flex", alignItems:"center", flexDirection:"column", position:"relative" }}>
-            <div style={{ width:32, height:32, borderRadius:"50%", background:step>=s?"#C9A84C":"transparent", border:`1px solid ${step>=s?"#C9A84C":"rgba(201,168,76,0.3)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:step>=s?"#080604":"rgba(201,168,76,0.5)", fontWeight:500, zIndex:1, position:"relative" }}>{s}</div>
-            <p style={{ marginTop:7, fontSize:9, letterSpacing:2, color:step>=s?"#C9A84C":"rgba(201,168,76,0.3)", textTransform:"uppercase", textAlign:"center" }}>{s===1?"Date et Menu":s===2?"Vos Infos":"Acompte"}</p>
-            {s<3 && <div style={{ position:"absolute", top:16, left:"50%", right:"-50%", height:1, background:step>s?"#C9A84C":"rgba(201,168,76,0.2)", zIndex:0 }} />}
+          <div key={s} className="step">
+            <div className={`step-num ${step>=s?"step-active":"step-inactive"}`}>{s}</div>
+            <p className={`step-label ${step>=s?"step-label-active":"step-label-inactive"}`}>{s===1?"Date":"Infos"}</p>
+            {s<3 && <div className={`step-line ${step>s?"step-line-done":"step-line-todo"}`} />}
           </div>
         ))}
       </div>
-      <div style={{ maxWidth:520, margin:"0 auto" }}>
+      <div className="form-wrap">
         {step===1 && (
           <div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }} className="grid2">
-              <div><label style={lS}>Date</label><input type="date" value={form.date} onChange={e => up("date", e.target.value)} style={iS} /></div>
-              <div><label style={lS}>Couverts</label>
-                <select value={form.guests} onChange={e => up("guests", e.target.value)} style={{ ...iS, cursor:"pointer" }}>
-                  {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n} {n===1?"personne":"personnes"}</option>)}
+            <div className="form-grid">
+              <div><label className="form-label">Date</label><input type="date" value={form.date} onChange={e=>up("date",e.target.value)} /></div>
+              <div><label className="form-label">Couverts</label>
+                <select value={form.guests} onChange={e=>up("guests",e.target.value)}>
+                  {[1,2,3,4,5,6,7,8].map(n=><option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
             </div>
-            <div style={{ marginBottom:20 }}>
-              <label style={lS}>Heure</label>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
-                {TIMES_R.map(t => <button key={t} onClick={() => up("time", t)} style={{ padding:"8px 13px", background:form.time===t?"#C9A84C":"transparent", border:`1px solid ${form.time===t?"#C9A84C":"rgba(201,168,76,0.25)"}`, color:form.time===t?"#080604":"rgba(245,240,232,0.6)", fontSize:12, transition:"all .3s" }}>{t}</button>)}
+            <div style={{marginBottom:20}}>
+              <label className="form-label">Heure</label>
+              <div className="time-grid">
+                {TIMES_R.map(t=><button key={t} onClick={()=>up("time",t)} className={`time-btn ${form.time===t?"time-active":"time-inactive"}`}>{t}</button>)}
               </div>
             </div>
-            <div style={{ marginBottom:26 }}>
-              <label style={lS}>Menu</label>
-              {MENUS_R.map(m => (
-                <div key={m.id} onClick={() => up("menu", m.id)} style={{ padding:"14px 18px", cursor:"pointer", marginBottom:7, background:form.menu===m.id?"rgba(201,168,76,0.08)":"rgba(245,240,232,0.02)", border:`1px solid ${form.menu===m.id?"rgba(201,168,76,0.5)":"rgba(201,168,76,0.1)"}`, display:"flex", justifyContent:"space-between", alignItems:"center", transition:"all .3s" }}>
+            <div style={{marginBottom:26}}>
+              <label className="form-label">Menu</label>
+              {MENUS_R.map(m=>(
+                <div key={m.id} onClick={()=>up("menu",m.id)} className={`menu-option ${form.menu===m.id?"menu-option-active":"menu-option-inactive"}`}>
                   <div>
-                    <p style={{ fontFamily:SERIF, fontSize:17, color:"#F5F0E8" }}>{m.label}</p>
-                    <p style={{ fontSize:11, color:"rgba(245,240,232,0.4)", marginTop:3 }}>Acompte : {m.acompte}€</p>
+                    <p className="menu-option-name">{m.label}</p>
+                    <p className="menu-option-note">Acompte : {m.acompte}€</p>
                   </div>
-                  <p style={{ fontFamily:SERIF, fontSize:17, color:"#C9A84C", fontStyle:"italic" }}>{m.prix}€ / pers</p>
+                  <p className="menu-option-prix">{m.prix}€/pers</p>
                 </div>
               ))}
             </div>
-            <button onClick={() => { if (form.date && form.time) setStep(2) }} style={{ width:"100%", padding:16, background:form.date&&form.time?"#C9A84C":"rgba(201,168,76,0.2)", border:"none", color:form.date&&form.time?"#080604":"rgba(245,240,232,0.3)", fontSize:11, letterSpacing:4, textTransform:"uppercase", cursor:form.date&&form.time?"pointer":"default", transition:"all .3s" }}>Continuer</button>
+            <button onClick={()=>{if(ok1)setStep(2)}} className={`btn-continue ${ok1?"btn-continue-active":"btn-continue-disabled"}`}>Continuer</button>
           </div>
         )}
         {step===2 && (
           <div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }} className="grid2">
-              {[["firstName","Prenom"],["lastName","Nom"]].map(([k,l]) => (
-                <div key={k}><label style={lS}>{l}</label><input value={form[k]} onChange={e => up(k, e.target.value)} style={iS} placeholder={l} /></div>
+            <div className="form-grid">
+              {[["firstName","Prenom"],["lastName","Nom"]].map(([k,l])=>(
+                <div key={k}><label className="form-label">{l}</label><input value={form[k]} onChange={e=>up(k,e.target.value)} placeholder={l} /></div>
               ))}
             </div>
-            {[["email","Email","email"],["phone","Telephone","tel"]].map(([k,l,t]) => (
-              <div key={k} style={{ marginBottom:10 }}><label style={lS}>{l}</label><input type={t} value={form[k]} onChange={e => up(k, e.target.value)} style={iS} placeholder={l} /></div>
+            {[["email","Email","email"],["phone","Telephone","tel"]].map(([k,l,t])=>(
+              <div key={k} className="form-group"><label className="form-label">{l}</label><input type={t} value={form[k]} onChange={e=>up(k,e.target.value)} placeholder={l} /></div>
             ))}
-            <div style={{ marginBottom:26 }}><label style={lS}>Allergies</label><textarea value={form.notes} onChange={e => up("notes", e.target.value)} rows={3} style={{ ...iS, resize:"vertical" }} placeholder="Allergies, occasion speciale..." /></div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={() => setStep(1)} style={{ flex:"0 0 auto", padding:"16px 18px", background:"transparent", border:"1px solid rgba(201,168,76,0.3)", color:"rgba(245,240,232,0.5)", fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Retour</button>
-              <button onClick={() => { if (form.firstName && form.email && form.phone) setStep(3) }} style={{ flex:1, padding:16, background:form.firstName&&form.email&&form.phone?"#C9A84C":"rgba(201,168,76,0.2)", border:"none", color:form.firstName&&form.email&&form.phone?"#080604":"rgba(245,240,232,0.3)", fontSize:11, letterSpacing:4, textTransform:"uppercase", cursor:form.firstName&&form.email&&form.phone?"pointer":"default" }}>Continuer</button>
+            <div className="form-group"><label className="form-label">Allergies</label><textarea value={form.notes} onChange={e=>up("notes",e.target.value)} rows={3} placeholder="Allergies, occasion speciale..." style={{resize:"vertical"}} /></div>
+            <div className="btn-row">
+              <button onClick={()=>setStep(1)} className="btn-back">Retour</button>
+              <button onClick={()=>{if(ok2)setStep(3)}} className={`btn-continue ${ok2?"btn-continue-active":"btn-continue-disabled"}`} style={{flex:1}}>Continuer</button>
             </div>
           </div>
         )}
         {step===3 && !paid && (
           <div>
-            <div style={{ padding:22, border:"1px solid rgba(201,168,76,0.2)", marginBottom:20, background:"rgba(201,168,76,0.03)" }}>
-              <p style={{ fontSize:10, letterSpacing:3, color:"#C9A84C", textTransform:"uppercase", marginBottom:14 }}>Recapitulatif</p>
-              {[["Date",form.date],["Heure",form.time],["Couverts",form.guests+" pers."],["Menu",sm?.label],["Nom",form.firstName+" "+form.lastName],["Email",form.email],["Tel.",form.phone]].map(([l,v]) => (
-                <div key={l} style={{ display:"flex", justifyContent:"space-between", marginBottom:9, paddingBottom:9, borderBottom:"1px solid rgba(201,168,76,0.06)" }}>
-                  <span style={{ fontSize:11, color:"rgba(245,240,232,0.4)", textTransform:"uppercase", letterSpacing:1 }}>{l}</span>
-                  <span style={{ fontSize:13, color:"#F5F0E8" }}>{v}</span>
-                </div>
+            <div className="recap">
+              <p className="recap-title">Recapitulatif</p>
+              {[["Date",form.date],["Heure",form.time],["Couverts",form.guests],["Menu",sm?.label],["Nom",form.firstName+" "+form.lastName],["Email",form.email],["Tel",form.phone]].map(([l,v])=>(
+                <div key={l} className="recap-row"><span className="recap-key">{l}</span><span className="recap-val">{v}</span></div>
               ))}
-              <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
-                <span style={{ fontSize:12, letterSpacing:2, color:"#C9A84C", textTransform:"uppercase" }}>Acompte</span>
-                <span style={{ fontFamily:SERIF, fontSize:24, color:"#C9A84C", fontStyle:"italic" }}>{sm?.acompte}€</span>
+              <div className="recap-total"><span className="recap-total-label">Acompte</span><span className="recap-total-val">{sm?.acompte}€</span></div>
+            </div>
+            <div className="payment-box">
+              <p className="payment-title">Paiement securise</p>
+              <input style={{marginBottom:9}} placeholder="Numero de carte" maxLength={19} />
+              <div className="payment-grid">
+                <input placeholder="MM / AA" maxLength={7} />
+                <input placeholder="CVV" maxLength={4} />
               </div>
+              <p className="payment-note">Stripe - integration a venir</p>
             </div>
-            <div style={{ padding:18, border:"1px solid rgba(201,168,76,0.15)", marginBottom:16 }}>
-              <p style={{ fontSize:10, letterSpacing:3, color:"#C9A84C", textTransform:"uppercase", marginBottom:12 }}>Paiement securise</p>
-              <input style={{ ...iS, marginBottom:9 }} placeholder="Numero de carte" maxLength={19} />
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }} className="grid2">
-                <input style={iS} placeholder="MM / AA" maxLength={7} />
-                <input style={iS} placeholder="CVV" maxLength={4} />
-              </div>
-              <p style={{ marginTop:9, fontSize:10, color:"rgba(245,240,232,0.3)" }}>Stripe - integration a venir</p>
+            <div className="confirm-box">
+              <p className="confirm-title">Confirmation automatique</p>
+              <p className="confirm-text">Email + SMS envoyes immediatement. Rappel SMS 24h avant.</p>
             </div>
-            <div style={{ padding:13, background:"rgba(201,168,76,0.04)", border:"1px solid rgba(201,168,76,0.12)", marginBottom:16 }}>
-              <p style={{ fontSize:10, letterSpacing:2, color:"#C9A84C", textTransform:"uppercase", marginBottom:5 }}>Confirmation automatique</p>
-              <p style={{ fontSize:12, color:"rgba(245,240,232,0.5)", lineHeight:1.7 }}>Email + SMS envoyes immediatement. Rappel SMS 24h avant votre visite.</p>
-            </div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={() => setStep(2)} style={{ flex:"0 0 auto", padding:"16px 18px", background:"transparent", border:"1px solid rgba(201,168,76,0.3)", color:"rgba(245,240,232,0.5)", fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Retour</button>
-              <button onClick={pay} disabled={sending} style={{ flex:1, padding:16, background:sending?"rgba(201,168,76,0.5)":"#C9A84C", border:"none", color:"#080604", fontSize:11, letterSpacing:4, textTransform:"uppercase", fontWeight:500, cursor:sending?"wait":"pointer" }}>{sending?"Traitement...":"Confirmer et Payer "+sm?.acompte+"€"}</button>
+            <div className="btn-row">
+              <button onClick={()=>setStep(2)} className="btn-back">Retour</button>
+              <button onClick={pay} disabled={sending} className="btn-pay" style={{background:sending?"rgba(201,168,76,0.5)":"#C9A84C",cursor:sending?"wait":"pointer"}}>
+                {sending?"Traitement...":"Confirmer "+sm?.acompte+"€"}
+              </button>
             </div>
           </div>
         )}
         {paid && (
-          <div style={{ textAlign:"center", padding:"40px 20px" }}>
-            <div style={{ fontSize:50, marginBottom:20 }}>✦</div>
-            <h3 style={{ fontFamily:SERIF, fontSize:32, fontWeight:300, color:"#C9A84C", marginBottom:12 }}>Reservation Confirmee</h3>
+          <div className="success">
+            <div className="success-icon">✦</div>
+            <h3 className="success-title">Reservation Confirmee</h3>
             <Divider />
-            <p style={{ marginTop:20, fontSize:13, lineHeight:2, color:"rgba(245,240,232,0.6)" }}>
-              Merci {form.firstName} !<br />
-              Table le {form.date} a {form.time}<br /><br />
-              Email confirme : {form.email}<br />
-              SMS rappel : {form.phone}
+            <p className="success-text">
+              Merci {form.firstName} !<br/>
+              Table le <span className="success-gold">{form.date}</span> a <span className="success-gold">{form.time}</span><br/><br/>
+              Email : <span className="success-gold">{form.email}</span><br/>
+              SMS : <span className="success-gold">{form.phone}</span>
             </p>
-            <p style={{ marginTop:24, fontSize:11, letterSpacing:2, color:"rgba(245,240,232,0.3)", textTransform:"uppercase" }}>A tres bientot au Goya</p>
+            <p className="success-sub">A tres bientot au Goya</p>
           </div>
         )}
       </div>
@@ -357,33 +322,30 @@ function ReservationPage() {
 
 function Footer({ setSection }) {
   return (
-    <footer style={{ borderTop:"1px solid rgba(201,168,76,0.1)", padding:"48px 24px 32px", position:"relative", zIndex:2 }}>
-      <div style={{ maxWidth:900, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))", gap:36, marginBottom:40 }}>
+    <footer className="footer">
+      <div className="footer-grid">
         <div>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-            <Logo size={32} />
-            <h3 style={{ fontFamily:SERIF, fontSize:17, fontWeight:300, color:"#C9A84C", letterSpacing:4 }}>Le Goya</h3>
-          </div>
-          <p style={{ fontSize:12, lineHeight:1.8, color:"rgba(245,240,232,0.38)" }}>Restaurant gastronomique. Une experience inoubliable.</p>
+          <div className="footer-brand"><Logo size={32}/><span className="footer-brand-name">Le Goya</span></div>
+          <p className="footer-tagline">Restaurant gastronomique.<br/>Une experience inoubliable.</p>
         </div>
         <div>
-          <p style={{ fontSize:9, letterSpacing:4, color:"#C9A84C", textTransform:"uppercase", marginBottom:14 }}>Navigation</p>
-          {["accueil","menu","evenements","reservation"].map(k => (
-            <button key={k} onClick={() => setSection(k)} style={{ display:"block", background:"none", border:"none", cursor:"pointer", fontSize:13, color:"rgba(245,240,232,0.42)", marginBottom:9, textAlign:"left", transition:"color .3s" }} onMouseEnter={e => e.currentTarget.style.color="#C9A84C"} onMouseLeave={e => e.currentTarget.style.color="rgba(245,240,232,0.42)"}>{k.charAt(0).toUpperCase()+k.slice(1)}</button>
+          <p className="footer-heading">Navigation</p>
+          {["accueil","menu","evenements","reservation"].map(k=>(
+            <button key={k} className="footer-link" onClick={()=>setSection(k)}>{k.charAt(0).toUpperCase()+k.slice(1)}</button>
           ))}
         </div>
         <div>
-          <p style={{ fontSize:9, letterSpacing:4, color:"#C9A84C", textTransform:"uppercase", marginBottom:14 }}>Contact</p>
-          <p style={{ fontSize:13, color:"rgba(245,240,232,0.42)", lineHeight:2 }}>contact@legoya.fr<br />+33 1 XX XX XX XX<br />Paris, France</p>
+          <p className="footer-heading">Contact</p>
+          <p className="footer-text">contact@legoya.fr<br/>Paris, France</p>
         </div>
         <div>
-          <p style={{ fontSize:9, letterSpacing:4, color:"#C9A84C", textTransform:"uppercase", marginBottom:14 }}>Horaires</p>
-          <p style={{ fontSize:13, color:"rgba(245,240,232,0.42)", lineHeight:2 }}>Mar - Sam<br />Dej : 12h - 14h<br />Diner : 19h - 22h30</p>
+          <p className="footer-heading">Horaires</p>
+          <p className="footer-text">Mar - Sam<br/>12h-14h / 19h-22h30</p>
         </div>
       </div>
-      <div style={{ borderTop:"1px solid rgba(201,168,76,0.08)", paddingTop:22, display:"flex", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
-        <p style={{ fontSize:11, color:"rgba(245,240,232,0.2)", letterSpacing:2 }}>2025 Le Goya</p>
-        <p style={{ fontSize:11, color:"rgba(245,240,232,0.2)" }}>Mentions legales</p>
+      <div className="footer-bottom">
+        <p className="footer-copy">2025 Le Goya</p>
+        <p className="footer-copy">Mentions legales</p>
       </div>
     </footer>
   )
@@ -391,20 +353,15 @@ function Footer({ setSection }) {
 
 export default function LeGoyaApp() {
   const [section, setSection] = useState("accueil")
-  const go = useCallback(s => { setSection(s); window.scrollTo({ top:0, behavior:"smooth" }) }, [])
-  const pages = {
-    accueil: <Hero setSection={go} />,
-    menu: <MenuPage />,
-    evenements: <EventsPage />,
-    reservation: <ReservationPage />,
-  }
+  const go = useCallback(s => { setSection(s); window.scrollTo({top:0,behavior:"smooth"}) }, [])
+  const pages = {accueil:<Hero setSection={go}/>,menu:<MenuPage/>,evenements:<EventsPage/>,reservation:<ReservationPage/>}
   return (
-    <div style={{ background:"#080604", minHeight:"100vh", color:"#F5F0E8" }}>
-      <GoldParticles />
-      <Nav section={section} setSection={go} />
-      <div style={{ position:"relative", zIndex:2 }}>
-        {pages[section] || pages.accueil}
-        <Footer setSection={go} />
+    <div className="goya-wrap">
+      <GoldParticles/>
+      <Nav section={section} setSection={go}/>
+      <div className="page-content">
+        {pages[section]||pages.accueil}
+        <Footer setSection={go}/>
       </div>
     </div>
   )
