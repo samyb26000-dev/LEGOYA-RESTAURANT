@@ -49,46 +49,105 @@ function Login() {
 }
 
 function Dashboard() {
-  const [stats, setStats] = useState({res:0,attente:0,evt:0,avis:0})
-  const [recents, setRecents] = useState([])
+  const [stats, setStats] = useState({caJour:0,caMois:0,nbRes:0,attente:0,evt:0,avis:0})
+  const [chart, setChart] = useState([])
+  const [paiements, setPaiements] = useState([])
+  const [today, setToday] = useState([])
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0]
+    const now = new Date()
+    const todayStr = now.toISOString().split("T")[0]
+    const monthStart = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split("T")[0]
     Promise.all([
-      supabase.from("reservations").select("id",{count:"exact",head:true}).eq("date",today),
+      supabase.from("paiements").select("montant").eq("statut","paye").gte("created_at",todayStr),
+      supabase.from("paiements").select("montant").eq("statut","paye").gte("created_at",monthStart),
+      supabase.from("reservations").select("id",{count:"exact",head:true}),
       supabase.from("reservations").select("id",{count:"exact",head:true}).eq("statut","en_attente"),
       supabase.from("evenements").select("id",{count:"exact",head:true}).eq("statut","nouveau"),
       supabase.from("avis").select("id",{count:"exact",head:true}).eq("publie",false),
-      supabase.from("reservations").select("*").order("created_at",{ascending:false}).limit(8),
-    ]).then(([r1,r2,r3,r4,r5]) => {
-      setStats({res:r1.count||0,attente:r2.count||0,evt:r3.count||0,avis:r4.count||0})
-      setRecents(r5.data||[])
+    ]).then(([p1,p2,r1,r2,e1,a1]) => {
+      setStats({
+        caJour:p1.data?.reduce((s,p)=>s+p.montant,0)||0,
+        caMois:p2.data?.reduce((s,p)=>s+p.montant,0)||0,
+        nbRes:r1.count||0,attente:r2.count||0,evt:e1.count||0,avis:a1.count||0,
+      })
     })
-  }, [])
-  const SC = {confirme:G,annule:"#e74c3c",en_attente:MUTED}
+    const days = Array.from({length:7},(_,i)=>{
+      const d = new Date(); d.setDate(d.getDate()-6+i)
+      return d.toISOString().split("T")[0]
+    })
+    Promise.all(days.map(d=>supabase.from("reservations").select("id",{count:"exact",head:true}).eq("date",d))).then(results=>{
+      setChart(days.map((d,i)=>({d:d.slice(5),v:results[i].count||0})))
+    })
+    supabase.from("paiements").select("*,reservations(prenom,nom,date,heure,email)").order("created_at",{ascending:false}).limit(6).then(({data})=>setPaiements(data||[]))
+    supabase.from("reservations").select("*").eq("date",todayStr).order("heure").then(({data})=>setToday(data||[]))
+  },[])
+  const maxV = Math.max(...chart.map(c=>c.v),1)
+  const SC = {confirme:G,annule:"#e74c3c",en_attente:"#f39c12",paye:G}
   return (
     <div>
-      <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:32}}>Tableau de bord</h2>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,marginBottom:40}}>
-        {[{l:"Reservations auj.",v:stats.res,i:"📅"},{l:"En attente",v:stats.attente,i:"⏳"},{l:"Demandes event.",v:stats.evt,i:"🎪"},{l:"Avis a moderer",v:stats.avis,i:"⭐"}].map((s,i)=>(
-          <div key={i} style={{padding:"24px 18px",background:CARD,border:`1px solid ${BORDER}`}}>
-            <div style={{fontSize:24,marginBottom:8}}>{s.i}</div>
-            <div style={{fontFamily:"Playfair Display,serif",fontSize:40,color:G,fontStyle:"italic",lineHeight:1}}>{s.v}</div>
-            <p style={{fontSize:10,color:MUTED,marginTop:6,letterSpacing:1,textTransform:"uppercase"}}>{s.l}</p>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:32,flexWrap:"wrap",gap:12}}>
+        <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT}}>Tableau de bord</h2>
+        <p style={{fontSize:11,color:MUTED,letterSpacing:1}}>{new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10,marginBottom:28}}>
+        {[
+          {l:"CA Aujourd hui",v:stats.caJour.toFixed(2)+"€",i:"💰",c:G},
+          {l:"CA Ce mois",v:stats.caMois.toFixed(2)+"€",i:"📈",c:G},
+          {l:"Total reservations",v:stats.nbRes,i:"📅",c:TEXT},
+          {l:"En attente confirm.",v:stats.attente,i:"⏳",c:"#f39c12"},
+          {l:"Demandes evenement",v:stats.evt,i:"🎪",c:"#3498db"},
+          {l:"Avis a moderer",v:stats.avis,i:"⭐",c:"#e74c3c"},
+        ].map((s,i)=>(
+          <div key={i} style={{padding:"18px 14px",background:CARD,border:`1px solid ${BORDER}`,borderTop:`2px solid ${s.c}`}}>
+            <div style={{fontSize:20,marginBottom:8}}>{s.i}</div>
+            <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:s.c,fontStyle:"italic",lineHeight:1}}>{s.v}</div>
+            <p style={{fontSize:9,color:MUTED,marginTop:6,letterSpacing:1,textTransform:"uppercase",lineHeight:1.4}}>{s.l}</p>
           </div>
         ))}
       </div>
-      <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:16}}>Dernieres reservations</h3>
-      <div style={{display:"flex",flexDirection:"column",gap:2}}>
-        {recents.map(r=>(
-          <div key={r.id} style={{padding:"14px 18px",background:CARD,border:`1px solid rgba(201,168,76,0.06)`,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-            <div>
-              <p style={{fontFamily:"Playfair Display,serif",fontSize:15,fontStyle:"italic",color:TEXT}}>{r.prenom} {r.nom}</p>
-              <p style={{fontSize:11,color:MUTED,marginTop:2}}>{r.date} · {r.heure} · {r.couverts} pers.</p>
+      <div style={{padding:"22px 18px",background:CARD,border:`1px solid ${BORDER}`,marginBottom:20}}>
+        <p style={{fontSize:10,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Reservations — 7 derniers jours</p>
+        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:100}}>
+          {chart.map((c,i)=>(
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+              {c.v>0&&<span style={{fontSize:11,color:G,fontWeight:500}}>{c.v}</span>}
+              <div style={{width:"100%",background:c.v>0?G:"rgba(201,168,76,0.1)",height:c.v>0?`${(c.v/maxV)*80}px`:"3px",transition:"height .6s ease",borderRadius:"2px 2px 0 0"}}/>
+              <span style={{fontSize:9,color:MUTED}}>{c.d}</span>
             </div>
-            <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:SC[r.statut]||MUTED,border:`1px solid ${SC[r.statut]||BORDER}`,padding:"3px 10px"}}>{r.statut?.replace("_"," ")}</span>
-          </div>
-        ))}
-        {recents.length===0&&<p style={{color:MUTED,fontSize:13,padding:"20px 0",textAlign:"center"}}>Aucune reservation</p>}
+          ))}
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{padding:"18px 16px",background:CARD,border:`1px solid ${BORDER}`}}>
+          <p style={{fontSize:10,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:14}}>Derniers paiements</p>
+          {paiements.length===0&&<p style={{color:MUTED,fontSize:12,padding:"16px 0",textAlign:"center"}}>Aucun paiement</p>}
+          {paiements.map(p=>(
+            <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(201,168,76,0.06)"}}>
+              <div>
+                <p style={{fontFamily:"Playfair Display,serif",fontSize:13,fontStyle:"italic",color:TEXT}}>{p.reservations?.prenom} {p.reservations?.nom}</p>
+                <p style={{fontSize:10,color:MUTED,marginTop:1}}>{p.reservations?.date}</p>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <p style={{fontFamily:"Playfair Display,serif",fontSize:15,color:G,fontStyle:"italic"}}>{p.montant}€</p>
+                <span style={{fontSize:9,color:SC[p.statut]||MUTED,textTransform:"uppercase",letterSpacing:1}}>{p.statut}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{padding:"18px 16px",background:CARD,border:`1px solid ${BORDER}`}}>
+          <p style={{fontSize:10,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:14}}>Reservations aujourd hui</p>
+          {today.length===0&&<p style={{color:MUTED,fontSize:12,padding:"16px 0",textAlign:"center"}}>Aucune reservation</p>}
+          {today.map(r=>(
+            <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(201,168,76,0.06)"}}>
+              <div>
+                <p style={{fontFamily:"Playfair Display,serif",fontSize:13,fontStyle:"italic",color:TEXT}}>{r.prenom} {r.nom}</p>
+                <p style={{fontSize:10,color:MUTED,marginTop:1}}>{r.heure} · {r.couverts} pers.</p>
+                {r.note_client&&<p style={{fontSize:9,color:G,marginTop:1}}>Note: {r.note_client}</p>}
+              </div>
+              <span style={{fontSize:9,letterSpacing:1,color:SC[r.statut]||MUTED,border:`1px solid ${SC[r.statut]||BORDER}`,padding:"3px 8px",textTransform:"uppercase"}}>{r.statut?.replace("_"," ")}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -107,7 +166,7 @@ function Reservations() {
   }
   useEffect(()=>{load()},[filter])
   const update = async (id,fields) => { await supabase.from("reservations").update(fields).eq("id",id); load(); setSel(null) }
-  const SC = {confirme:G,annule:"#e74c3c",en_attente:MUTED}
+  const SC = {confirme:G,annule:"#e74c3c",en_attente:"#f39c12"}
   return (
     <div>
       <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:24}}>Reservations</h2>
@@ -126,7 +185,10 @@ function Reservations() {
               <p style={{fontSize:11,color:MUTED,marginTop:3}}>{r.date} · {r.heure} · {r.couverts} pers. · {r.menu_choisi}</p>
               {r.note_client&&<p style={{fontSize:11,color:G,marginTop:3}}>Note : {r.note_client}</p>}
             </div>
-            <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:SC[r.statut]||MUTED,border:`1px solid ${SC[r.statut]||BORDER}`,padding:"4px 10px"}}>{r.statut?.replace("_"," ")}</span>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+              <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:SC[r.statut]||MUTED,border:`1px solid ${SC[r.statut]||BORDER}`,padding:"4px 10px"}}>{r.statut?.replace("_"," ")}</span>
+              <span style={{fontSize:9,color:r.paiement_statut==="paye"?G:MUTED,letterSpacing:1}}>{r.paiement_statut==="paye"?"Paye":"En attente paiement"}</span>
+            </div>
           </div>
         ))}
         {data.length===0&&<p style={{color:MUTED,fontSize:13,padding:"40px 0",textAlign:"center"}}>Aucune reservation</p>}
@@ -135,10 +197,10 @@ function Reservations() {
         <div style={{position:"fixed",inset:0,background:"rgba(8,6,4,0.95)",backdropFilter:"blur(16px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}} onClick={()=>setSel(null)}>
           <div style={{maxWidth:480,width:"100%",padding:"36px 28px",border:`1px solid ${BORDER}`,background:"#0F0D0A",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <h3 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G,marginBottom:20}}>{sel.prenom} {sel.nom}</h3>
-            {[["Date",sel.date],["Heure",sel.heure],["Couverts",sel.couverts+" pers."],["Menu",sel.menu_choisi],["Acompte",sel.acompte+"€"],["Email",sel.email],["Tel",sel.telephone]].map(([l,v])=>(
+            {[["Date",sel.date],["Heure",sel.heure],["Couverts",sel.couverts+" pers."],["Menu",sel.menu_choisi],["Acompte",sel.acompte+"€"],["Paiement",sel.paiement_statut||"en attente"],["Email",sel.email],["Tel",sel.telephone]].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,paddingBottom:8,borderBottom:"1px solid rgba(201,168,76,0.06)"}}>
                 <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:1}}>{l}</span>
-                <span style={{fontSize:13,color:TEXT}}>{v}</span>
+                <span style={{fontSize:13,color:l==="Paiement"&&v==="paye"?G:TEXT}}>{v}</span>
               </div>
             ))}
             {sel.note_client&&(
@@ -226,12 +288,8 @@ function Carte() {
             <label style={S.label}>Description</label>
             <textarea value={form.description} onChange={e=>up("description",e.target.value)} rows={3} style={{...S.input,resize:"vertical"}} placeholder="Description"/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div>
-                <label style={S.label}>Prix (€)</label>
-                <input type="number" value={form.prix} onChange={e=>up("prix",e.target.value)} style={S.input} placeholder="0.00"/>
-              </div>
-              <div>
-                <label style={S.label}>Categorie</label>
+              <div><label style={S.label}>Prix (€)</label><input type="number" value={form.prix} onChange={e=>up("prix",e.target.value)} style={S.input} placeholder="0.00"/></div>
+              <div><label style={S.label}>Categorie</label>
                 <select value={form.categorie_id} onChange={e=>up("categorie_id",e.target.value)} style={{...S.input,cursor:"pointer"}}>
                   {cats.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}
                 </select>
@@ -293,7 +351,7 @@ function Evenements() {
         <div style={{position:"fixed",inset:0,background:"rgba(8,6,4,0.95)",backdropFilter:"blur(16px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}} onClick={()=>setSel(null)}>
           <div style={{maxWidth:480,width:"100%",padding:"36px 28px",border:`1px solid ${BORDER}`,background:"#0F0D0A",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <h3 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G,marginBottom:20}}>{sel.prenom} {sel.nom}</h3>
-            {[["Type",sel.type_event],["Date souhaitee",sel.date_souhaitee||"Non precise"],["Personnes",(sel.nombre_personnes||"?")+` pers.`],["Budget",sel.budget||"Non precise"],["Email",sel.email],["Tel",sel.telephone]].map(([l,v])=>(
+            {[["Type",sel.type_event],["Date souhaitee",sel.date_souhaitee||"Non precise"],["Personnes",(sel.nombre_personnes||"?")+" pers."],["Budget",sel.budget||"Non precise"],["Email",sel.email],["Tel",sel.telephone]].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,paddingBottom:8,borderBottom:"1px solid rgba(201,168,76,0.06)"}}>
                 <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:1}}>{l}</span>
                 <span style={{fontSize:13,color:TEXT}}>{v}</span>
@@ -397,10 +455,7 @@ function Infos() {
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Informations generales</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           {[["name","Nom"],["phone","Telephone"],["email","Email"],["address","Adresse"],["city","Ville"],["instagram","Instagram"],["facebook","Facebook"]].map(([k,l])=>(
-            <div key={k}>
-              <label style={S.label}>{l}</label>
-              <input value={info[k]||""} onChange={e=>setInfo(i=>({...i,[k]:e.target.value}))} style={S.input} placeholder={l}/>
-            </div>
+            <div key={k}><label style={S.label}>{l}</label><input value={info[k]||""} onChange={e=>setInfo(i=>({...i,[k]:e.target.value}))} style={S.input} placeholder={l}/></div>
           ))}
         </div>
         <label style={S.label}>Description</label>
@@ -437,18 +492,9 @@ function Infos() {
       <div>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Fermetures exceptionnelles</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto",gap:10,marginBottom:16,alignItems:"end"}}>
-          <div>
-            <label style={S.label}>Du</label>
-            <input type="date" value={nf.date_debut} onChange={e=>setNf(f=>({...f,date_debut:e.target.value}))} style={{...S.input,marginBottom:0}}/>
-          </div>
-          <div>
-            <label style={S.label}>Au</label>
-            <input type="date" value={nf.date_fin} onChange={e=>setNf(f=>({...f,date_fin:e.target.value}))} style={{...S.input,marginBottom:0}}/>
-          </div>
-          <div>
-            <label style={S.label}>Motif</label>
-            <input value={nf.motif} onChange={e=>setNf(f=>({...f,motif:e.target.value}))} style={{...S.input,marginBottom:0}} placeholder="Conges annuels..."/>
-          </div>
+          <div><label style={S.label}>Du</label><input type="date" value={nf.date_debut} onChange={e=>setNf(f=>({...f,date_debut:e.target.value}))} style={{...S.input,marginBottom:0}}/></div>
+          <div><label style={S.label}>Au</label><input type="date" value={nf.date_fin} onChange={e=>setNf(f=>({...f,date_fin:e.target.value}))} style={{...S.input,marginBottom:0}}/></div>
+          <div><label style={S.label}>Motif</label><input value={nf.motif} onChange={e=>setNf(f=>({...f,motif:e.target.value}))} style={{...S.input,marginBottom:0}} placeholder="Conges annuels..."/></div>
           <button onClick={addF} style={{...S.btn,padding:"11px 16px"}}>+</button>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
