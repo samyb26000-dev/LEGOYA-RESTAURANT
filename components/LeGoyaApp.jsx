@@ -68,7 +68,7 @@ function LoadingScreen({ onDone }) {
   return (
     <div className={`loading-screen${done?" done":""}`}>
       <div className="loading-logo">
-        <img src="/logo.PNG" style={{width:100,height:100,objectFit:"contain"}} alt="Le Goya"/>
+        <img src="/logo.png" style={{width:100,height:100,objectFit:"contain"}} alt="Le Goya"/>
       </div>
       <h1 className="loading-title">Le Goya</h1>
       <p className="loading-sub">Restaurant Gastronomique</p>
