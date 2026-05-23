@@ -40,7 +40,6 @@ button { cursor: pointer; }
 .page-content { position: relative; z-index: 2; }
 
 .hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 0 24px; }
-.hero-bg1 { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(139,26,26,0.15) 0%, transparent 70%); }
 .hero-line { position: absolute; top: 50%; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, rgba(201,168,76,0.25), transparent); }
 .hero-content { text-align: center; position: relative; z-index: 2; transition: opacity 1.2s ease; }
 .hero-logo-wrap { margin-bottom: 32px; display: flex; justify-content: center; animation: float 4s ease-in-out infinite; }
