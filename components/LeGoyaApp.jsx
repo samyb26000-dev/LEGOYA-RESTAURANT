@@ -139,7 +139,7 @@ function GoldParticles() {
 function Logo({ size }) {
   return (
     <div className="logo-wrap" style={{width:size,height:size}}>
-      <img src="/logo.PNG" alt="Le Goya" className="logo-img" style={{width:size,height:size}}/>
+      <img src="/logo.png" alt="Le Goya" className="logo-img" style={{width:size,height:size}}/>
       <div className="logo-ring" style={{width:size*.22,height:size*.22}}/>
     </div>
   )
