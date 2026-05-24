@@ -12,6 +12,8 @@
     "react": "^19",
     "react-dom": "^19",
     "@supabase/supabase-js": "^2.39.0",
-    "stripe": "^14.21.0"
+    "@supabase/ssr": "^0.3.0",
+    "stripe": "^14.21.0",
+    "validator": "^13.12.0"
   }
 }
