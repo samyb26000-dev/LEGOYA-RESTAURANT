@@ -31,7 +31,7 @@ function Login() {
     <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:380,width:"100%",padding:"48px 36px",border:`1px solid ${BORDER}`,background:"rgba(15,13,10,0.9)"}}>
         <div style={{textAlign:"center",marginBottom:36}}>
-          <img src="/logo.png" style={{width:70,height:70,objectFit:"contain",marginBottom:16}} alt="logo"/>
+          <img src="/logo.PNG" style={{width:70,height:70,objectFit:"contain",marginBottom:16}} alt="logo"/>
           <h1 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G}}>Panel Admin</h1>
           <p style={{fontSize:10,letterSpacing:3,color:MUTED,textTransform:"uppercase",marginTop:6}}>Le Goya</p>
         </div>
@@ -71,7 +71,7 @@ function Dashboard() {
     Promise.all(days.map(d=>supabase.from("reservations").select("id",{count:"exact",head:true}).eq("date",d))).then(results=>{
       setChart(days.map((d,i)=>({d:d.slice(5),v:results[i].count||0})))
     })
-    supabase.from("paiements").select("*,reservations(prenom,nom,date,heure,email)").order("created_at",{ascending:false}).limit(6).then(({data})=>setPaiements(data||[]))
+    supabase.from("paiements").select("*,reservations(prenom,nom,date,heure)").order("created_at",{ascending:false}).limit(6).then(({data})=>setPaiements(data||[]))
     supabase.from("reservations").select("*").eq("date",todayStr).order("heure").then(({data})=>setToday(data||[]))
   },[])
   const maxV = Math.max(...chart.map(c=>c.v),1)
@@ -140,29 +140,113 @@ function Dashboard() {
 }
 
 function Reservations() {
+  const todayStr = new Date().toISOString().split("T")[0]
+  const [tab, setTab] = useState("avenir")
   const [data, setData] = useState([])
-  const [filter, setFilter] = useState("tous")
+  const [counts, setCounts] = useState({avenir:0,annulees:0,archives:0})
   const [sel, setSel] = useState(null)
-  const [note, setNote] = useState("")
-  const load = async () => {
-    let q = supabase.from("reservations").select("*").order("date").order("heure")
-    if (filter!=="tous") q = q.eq("statut",filter)
-    const {data:d} = await q; setData(d||[])
+  const [noteAdmin, setNoteAdmin] = useState("")
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState({})
+  const [refunding, setRefunding] = useState(false)
+  const [refundMsg, setRefundMsg] = useState("")
+  const [deleting, setDeleting] = useState(false)
+
+  const TIMES = ["12:00","12:30","13:00","19:00","19:30","20:00","20:30","21:00"]
+  const MENUS = ["Menu Classique","Menu Prestige","Menu Degustation"]
+
+  const loadCounts = async () => {
+    const [a,b,c] = await Promise.all([
+      supabase.from("reservations").select("id",{count:"exact",head:true}).gte("date",todayStr).neq("statut","annule"),
+      supabase.from("reservations").select("id",{count:"exact",head:true}).eq("statut","annule"),
+      supabase.from("reservations").select("id",{count:"exact",head:true}).lt("date",todayStr).neq("statut","annule"),
+    ])
+    setCounts({avenir:a.count||0, annulees:b.count||0, archives:c.count||0})
   }
-  useEffect(()=>{load()},[filter])
-  const update = async (id,fields) => { await supabase.from("reservations").update(fields).eq("id",id); load(); setSel(null) }
-  const SC = {confirme:G,annule:"#e74c3c",en_attente:"#f39c12"}
+
+  const load = async () => {
+    let q
+    if (tab === "avenir") {
+      q = supabase.from("reservations").select("*, paiements(*)").gte("date",todayStr).neq("statut","annule").order("date").order("heure")
+    } else if (tab === "annulees") {
+      q = supabase.from("reservations").select("*, paiements(*)").eq("statut","annule").order("date",{ascending:false})
+    } else if (tab === "archives") {
+      q = supabase.from("reservations").select("*, paiements(*)").lt("date",todayStr).neq("statut","annule").order("date",{ascending:false})
+    }
+    const {data:d} = await q
+    setData(d||[])
+  }
+
+  useEffect(() => { load(); loadCounts() }, [tab])
+
+  const openSel = (r) => {
+    setSel(r); setNoteAdmin(r.note_admin||""); setEditMode(false); setRefundMsg("")
+    setEditForm({date:r.date||"",heure:r.heure||"",couverts:r.couverts||2,menu_choisi:r.menu_choisi||"",prenom:r.prenom||"",nom:r.nom||"",email:r.email||"",telephone:r.telephone||"",note_client:r.note_client||"",statut:r.statut||"en_attente"})
+  }
+
+  const update = async (id,fields) => { await supabase.from("reservations").update(fields).eq("id",id); load(); loadCounts(); setSel(null) }
+  const saveEdit = async () => { await supabase.from("reservations").update(editForm).eq("id",sel.id); load(); loadCounts(); setSel(null); setEditMode(false) }
+  const saveNote = async () => { await supabase.from("reservations").update({note_admin:noteAdmin}).eq("id",sel.id); load() }
+
+  const handleRefund = async (force=false) => {
+    setRefunding(true); setRefundMsg("")
+    const r = await fetch("/api/refund",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reservationId:sel.id,force})})
+    const result = await r.json()
+    if (result.success) { setRefundMsg(`Remboursement de ${result.montant}€ effectue (${result.refund_id?.slice(-8)})`); load(); loadCounts() }
+    else setRefundMsg(result.error)
+    setRefunding(false)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm("Supprimer definitivement ? Action irreversible.")) return
+    setDeleting(true)
+    await supabase.from("paiements").delete().eq("reservation_id",sel.id)
+    await supabase.from("reservations").delete().eq("id",sel.id)
+    load(); loadCounts(); setSel(null); setDeleting(false)
+  }
+
+  const payment = sel?.paiements?.[0]
+  const hoursUntil = sel ? (new Date(`${sel.date}T${sel.heure}:00`) - new Date())/(1000*60*60) : 0
+  const isRefundable = hoursUntil >= 48 && payment?.statut === "paye"
+
+  const SC = {confirme:G,annule:"#e74c3c",en_attente:"#f39c12",rembourse:"#3498db"}
+
+  const TABS = [
+    {k:"avenir",l:"A venir",i:"📅",c:"#27ae60",desc:"Reservations a venir et du jour"},
+    {k:"annulees",l:"Annulees",i:"✕",c:"#e74c3c",desc:"Reservations annulees"},
+    {k:"archives",l:"Archives",i:"🗄",c:MUTED,desc:"Reservations passees"},
+  ]
+
   return (
     <div>
       <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:24}}>Reservations</h2>
-      <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap"}}>
-        {["tous","en_attente","confirme","annule"].map(f=>(
-          <button key={f} onClick={()=>setFilter(f)} style={{padding:"8px 16px",background:filter===f?G:"transparent",border:`1px solid ${filter===f?G:BORDER}`,color:filter===f?BG:MUTED,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>{f.replace("_"," ")}</button>
+
+      {/* TABS AUTOMATIQUES */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:28}}>
+        {TABS.map(t=>(
+          <button key={t.k} onClick={()=>setTab(t.k)} style={{padding:"14px 12px",background:tab===t.k?`${t.c}15`:"transparent",border:`1px solid ${tab===t.k?t.c:BORDER}`,cursor:"pointer",textAlign:"left",transition:"all .3s"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:16}}>{t.i}</span>
+              <span style={{fontFamily:"Playfair Display,serif",fontSize:22,color:tab===t.k?t.c:MUTED,fontStyle:"italic"}}>{counts[t.k]}</span>
+            </div>
+            <p style={{fontSize:10,letterSpacing:2,color:tab===t.k?t.c:MUTED,textTransform:"uppercase",fontFamily:"Montserrat,sans-serif"}}>{t.l}</p>
+          </button>
         ))}
       </div>
+
+      {/* LEGENDE */}
+      <div style={{padding:"10px 14px",background:"rgba(201,168,76,0.04)",border:`1px solid rgba(201,168,76,0.1)`,marginBottom:16}}>
+        <p style={{fontSize:11,color:MUTED}}>
+          {tab==="avenir"&&"Reservations d aujourd hui et futures — actives uniquement"}
+          {tab==="annulees"&&"Reservations annulees automatiquement (via le site ou depuis l admin)"}
+          {tab==="archives"&&"Reservations dont la date est passee — conservees pour historique et facturation"}
+        </p>
+      </div>
+
       <div style={{display:"flex",flexDirection:"column",gap:2}}>
         {data.map(r=>(
-          <div key={r.id} onClick={()=>{setSel(r);setNote(r.note_admin||"")}} style={{padding:"16px 18px",background:CARD,border:`1px solid rgba(201,168,76,0.08)`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,transition:"background .3s"}}
+          <div key={r.id} onClick={()=>openSel(r)}
+            style={{padding:"16px 18px",background:CARD,border:`1px solid rgba(201,168,76,0.08)`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,transition:"background .3s",opacity:tab==="archives"?.75:1}}
             onMouseEnter={e=>e.currentTarget.style.background="rgba(201,168,76,0.05)"}
             onMouseLeave={e=>e.currentTarget.style.background=CARD}>
             <div>
@@ -172,38 +256,156 @@ function Reservations() {
             </div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
               <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:SC[r.statut]||MUTED,border:`1px solid ${SC[r.statut]||BORDER}`,padding:"4px 10px"}}>{r.statut?.replace("_"," ")}</span>
-              <span style={{fontSize:9,color:r.paiement_statut==="paye"?G:MUTED,letterSpacing:1}}>{r.paiement_statut==="paye"?"Paye":"En attente paiement"}</span>
+              <span style={{fontSize:9,color:r.paiement_statut==="paye"?G:r.paiement_statut==="rembourse"?"#3498db":MUTED,letterSpacing:1}}>{r.paiement_statut?.replace("_"," ")||"—"}</span>
+              {r.acompte&&<span style={{fontSize:10,color:MUTED}}>{r.acompte}€</span>}
             </div>
           </div>
         ))}
-        {data.length===0&&<p style={{color:MUTED,fontSize:13,padding:"40px 0",textAlign:"center"}}>Aucune reservation</p>}
+        {data.length===0&&(
+          <div style={{textAlign:"center",padding:"48px 20px",color:MUTED}}>
+            <div style={{fontSize:32,marginBottom:12}}>{TABS.find(t=>t.k===tab)?.i}</div>
+            <p style={{fontSize:13}}>Aucune reservation dans cette section</p>
+          </div>
+        )}
       </div>
+
+      {/* MODAL */}
       {sel&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(8,6,4,0.95)",backdropFilter:"blur(16px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}} onClick={()=>setSel(null)}>
-          <div style={{maxWidth:480,width:"100%",padding:"36px 28px",border:`1px solid ${BORDER}`,background:"#0F0D0A",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G,marginBottom:20}}>{sel.prenom} {sel.nom}</h3>
-            {[["Date",sel.date],["Heure",sel.heure],["Couverts",sel.couverts+" pers."],["Menu",sel.menu_choisi],["Acompte",sel.acompte+"€"],["Paiement",sel.paiement_statut||"en attente"],["Email",sel.email],["Tel",sel.telephone]].map(([l,v])=>(
-              <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,paddingBottom:8,borderBottom:"1px solid rgba(201,168,76,0.06)"}}>
-                <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:1}}>{l}</span>
-                <span style={{fontSize:13,color:l==="Paiement"&&v==="paye"?G:TEXT}}>{v}</span>
+        <div style={{position:"fixed",inset:0,background:"rgba(8,6,4,0.95)",backdropFilter:"blur(16px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}} onClick={()=>{setSel(null);setEditMode(false)}}>
+          <div style={{maxWidth:560,width:"100%",padding:"32px 28px",border:`1px solid ${BORDER}`,background:"#0F0D0A",maxHeight:"95vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:8}}>
+              <div>
+                <h3 style={{fontFamily:"Playfair Display,serif",fontSize:20,fontStyle:"italic",color:G}}>{sel.prenom} {sel.nom}</h3>
+                <p style={{fontSize:10,color:MUTED,marginTop:4,letterSpacing:1}}>REF: {sel.id.slice(-8).toUpperCase()}</p>
               </div>
-            ))}
-            {sel.note_client&&(
-              <div style={{padding:"10px 14px",background:"rgba(201,168,76,0.06)",border:`1px solid rgba(201,168,76,0.2)`,marginBottom:16,marginTop:4}}>
-                <p style={{fontSize:9,letterSpacing:2,color:G,textTransform:"uppercase",marginBottom:4}}>Note du client</p>
-                <p style={{fontSize:12,color:"rgba(245,240,232,0.7)"}}>{sel.note_client}</p>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:SC[sel.statut]||MUTED,border:`1px solid ${SC[sel.statut]||BORDER}`,padding:"4px 10px"}}>{sel.statut?.replace("_"," ")}</span>
+                {payment?.statut&&<span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:payment.statut==="paye"?G:payment.statut==="rembourse"?"#3498db":MUTED,border:`1px solid ${payment.statut==="paye"?G:payment.statut==="rembourse"?"#3498db":BORDER}`,padding:"4px 10px"}}>{payment.statut}</span>}
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:2,marginBottom:20}}>
+              <button onClick={()=>setEditMode(false)} style={{flex:1,padding:"8px",background:!editMode?G:"transparent",border:`1px solid ${!editMode?G:BORDER}`,color:!editMode?BG:MUTED,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>Apercu</button>
+              <button onClick={()=>setEditMode(true)} style={{flex:1,padding:"8px",background:editMode?G:"transparent",border:`1px solid ${editMode?G:BORDER}`,color:editMode?BG:MUTED,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer"}}>✏ Modifier</button>
+            </div>
+
+            {!editMode&&(
+              <div>
+                {[["Date",sel.date],["Heure",sel.heure],["Couverts",sel.couverts+" pers."],["Menu",sel.menu_choisi],["Acompte",sel.acompte+"€"],["Paiement",sel.paiement_statut||"—"],["Email",sel.email],["Tel",sel.telephone]].map(([l,v])=>(
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8,paddingBottom:8,borderBottom:"1px solid rgba(201,168,76,0.06)"}}>
+                    <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:1}}>{l}</span>
+                    <span style={{fontSize:13,color:TEXT}}>{v}</span>
+                  </div>
+                ))}
+                {sel.note_client&&(
+                  <div style={{padding:"10px 14px",background:"rgba(201,168,76,0.06)",border:`1px solid rgba(201,168,76,0.2)`,marginBottom:12,marginTop:4}}>
+                    <p style={{fontSize:9,letterSpacing:2,color:G,textTransform:"uppercase",marginBottom:4}}>Note du client</p>
+                    <p style={{fontSize:12,color:"rgba(245,240,232,0.7)"}}>{sel.note_client}</p>
+                  </div>
+                )}
+                {sel.note_admin&&(
+                  <div style={{padding:"10px 14px",background:"rgba(245,240,232,0.03)",border:`1px solid rgba(245,240,232,0.08)`,marginBottom:12}}>
+                    <p style={{fontSize:9,letterSpacing:2,color:MUTED,textTransform:"uppercase",marginBottom:4}}>Note interne</p>
+                    <p style={{fontSize:12,color:"rgba(245,240,232,0.5)"}}>{sel.note_admin}</p>
+                  </div>
+                )}
+                <div style={{marginBottom:16}}>
+                  <label style={{...S.label,marginBottom:6}}>Note interne equipe</label>
+                  <textarea value={noteAdmin} onChange={e=>setNoteAdmin(e.target.value)} rows={2} style={{...S.input,marginBottom:8,resize:"vertical"}} placeholder="Visible uniquement par l equipe..."/>
+                  <button onClick={saveNote} style={{...S.btnOut,fontSize:10}}>Sauvegarder note</button>
+                </div>
               </div>
             )}
-            <div style={{marginBottom:16}}>
-              <label style={{...S.label,marginBottom:6}}>Note interne equipe</label>
-              <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} style={{...S.input,marginBottom:8,resize:"vertical"}} placeholder="Visible uniquement par l equipe..."/>
-              <button onClick={()=>update(sel.id,{note_admin:note})} style={{...S.btnOut,fontSize:10}}>Sauvegarder note</button>
-            </div>
-            <div style={{display:"flex",gap:10,marginBottom:10}}>
-              <button onClick={()=>update(sel.id,{statut:"confirme"})} style={{...S.btn,flex:1}}>Confirmer</button>
-              <button onClick={()=>update(sel.id,{statut:"annule"})} style={{...S.btnRed,flex:1}}>Annuler</button>
-            </div>
-            <button onClick={()=>setSel(null)} style={{...S.btnOut,width:"100%"}}>Fermer</button>
+
+            {editMode&&(
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                  <div><label style={S.label}>Date</label><input type="date" value={editForm.date} onChange={e=>setEditForm(f=>({...f,date:e.target.value}))} style={S.input}/></div>
+                  <div><label style={S.label}>Couverts</label>
+                    <select value={editForm.couverts} onChange={e=>setEditForm(f=>({...f,couverts:parseInt(e.target.value)}))} style={{...S.input,cursor:"pointer"}}>
+                      {[1,2,3,4,5,6,7,8].map(n=><option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label style={S.label}>Heure</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+                  {TIMES.map(t=>(
+                    <button key={t} onClick={()=>setEditForm(f=>({...f,heure:t}))} style={{padding:"6px 12px",background:editForm.heure===t?G:"transparent",border:`1px solid ${editForm.heure===t?G:BORDER}`,color:editForm.heure===t?BG:MUTED,fontSize:11,cursor:"pointer"}}>{t}</button>
+                  ))}
+                </div>
+                <label style={S.label}>Menu</label>
+                <select value={editForm.menu_choisi} onChange={e=>setEditForm(f=>({...f,menu_choisi:e.target.value}))} style={{...S.input,cursor:"pointer",marginBottom:12}}>
+                  {MENUS.map(m=><option key={m} value={m}>{m}</option>)}
+                </select>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <div><label style={S.label}>Prenom</label><input value={editForm.prenom} onChange={e=>setEditForm(f=>({...f,prenom:e.target.value}))} style={S.input}/></div>
+                  <div><label style={S.label}>Nom</label><input value={editForm.nom} onChange={e=>setEditForm(f=>({...f,nom:e.target.value}))} style={S.input}/></div>
+                </div>
+                <label style={S.label}>Email</label>
+                <input type="email" value={editForm.email} onChange={e=>setEditForm(f=>({...f,email:e.target.value}))} style={S.input}/>
+                <label style={S.label}>Telephone</label>
+                <input type="tel" value={editForm.telephone} onChange={e=>setEditForm(f=>({...f,telephone:e.target.value}))} style={S.input}/>
+                <label style={S.label}>Note client</label>
+                <textarea value={editForm.note_client} onChange={e=>setEditForm(f=>({...f,note_client:e.target.value}))} rows={2} style={{...S.input,resize:"vertical"}} placeholder="Allergies, occasion speciale..."/>
+                <label style={S.label}>Statut</label>
+                <select value={editForm.statut} onChange={e=>setEditForm(f=>({...f,statut:e.target.value}))} style={{...S.input,cursor:"pointer",marginBottom:16}}>
+                  <option value="en_attente">En attente</option>
+                  <option value="confirme">Confirme</option>
+                  <option value="annule">Annule</option>
+                </select>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={saveEdit} style={{...S.btn,flex:1}}>Sauvegarder</button>
+                  <button onClick={()=>setEditMode(false)} style={{...S.btnOut,padding:"12px 16px"}}>Annuler</button>
+                </div>
+              </div>
+            )}
+
+            {!editMode&&(
+              <div style={{marginTop:16}}>
+                <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                  {sel.statut!=="confirme"&&<button onClick={()=>update(sel.id,{statut:"confirme"})} style={{...S.btn,flex:1,padding:"11px 12px",fontSize:10}}>✓ Confirmer</button>}
+                  {sel.statut!=="annule"&&<button onClick={()=>update(sel.id,{statut:"annule"})} style={{...S.btnRed,flex:1,padding:"11px 12px",fontSize:10}}>✕ Annuler</button>}
+                </div>
+
+                {payment?.statut==="paye"&&(
+                  <div style={{padding:"16px",background:"rgba(52,152,219,0.06)",border:"1px solid rgba(52,152,219,0.25)",marginBottom:8}}>
+                    <p style={{fontSize:10,letterSpacing:2,color:"#3498db",textTransform:"uppercase",marginBottom:8,fontFamily:"Montserrat,sans-serif"}}>💳 Remboursement Stripe</p>
+                    {isRefundable?(
+                      <div>
+                        <p style={{fontSize:12,color:"rgba(245,240,232,0.6)",marginBottom:10}}>Reservation dans <strong style={{color:"#3498db"}}>{Math.round(hoursUntil)}h</strong> — eligible (+ de 48h)</p>
+                        <button onClick={()=>handleRefund(false)} disabled={refunding} style={{...S.btn,width:"100%",background:refunding?"rgba(52,152,219,0.5)":"#3498db",fontSize:10,padding:"11px"}}>
+                          {refunding?"Traitement...":"↩ Rembourser "+sel.acompte+"€ sur Stripe"}
+                        </button>
+                      </div>
+                    ):(
+                      <div>
+                        <p style={{fontSize:12,color:"rgba(245,240,232,0.5)",marginBottom:8}}>{hoursUntil<48?`Annulation dans ${Math.round(hoursUntil)}h — hors delai 48h`:""}</p>
+                        <p style={{fontSize:11,color:"rgba(245,240,232,0.4)",marginBottom:10}}>Selon les CGV, l acompte est non remboursable. Forcer quand meme ?</p>
+                        <button onClick={()=>handleRefund(true)} disabled={refunding} style={{...S.btnRed,width:"100%",padding:"10px",fontSize:10}}>
+                          {refunding?"Traitement...":"⚠ Forcer le remboursement (hors CGV)"}
+                        </button>
+                      </div>
+                    )}
+                    {refundMsg&&<p style={{fontSize:12,color:refundMsg.includes("succes")?G:"#e74c3c",marginTop:8,lineHeight:1.6}}>{refundMsg}</p>}
+                  </div>
+                )}
+
+                {(payment?.statut==="paye"||payment?.statut==="rembourse")&&(
+                  <button onClick={()=>window.open(`/facture/${sel.id}`,"_blank")} style={{...S.btnOut,width:"100%",marginBottom:8,padding:"11px",fontSize:10,color:G,borderColor:G}}>
+                    🧾 Ouvrir la facture
+                  </button>
+                )}
+
+                {(sel.statut==="annule"||tab==="archives")&&(
+                  <button onClick={handleDelete} disabled={deleting} style={{...S.btnRed,width:"100%",padding:"10px",fontSize:10,opacity:deleting?.6:1}}>
+                    {deleting?"Suppression...":"🗑 Supprimer definitivement"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button onClick={()=>{setSel(null);setEditMode(false)}} style={{...S.btnOut,width:"100%",marginTop:10}}>Fermer</button>
           </div>
         </div>
       )}
@@ -313,11 +515,10 @@ function Galerie() {
     setPhotos(data||[])
   }
   useEffect(()=>{load()},[])
-
   const uploadFile = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 15*1024*1024) { setMsg("Fichier trop lourd (max 15MB)"); return }
+    if (file.size>15*1024*1024) { setMsg("Fichier trop lourd (max 15MB)"); return }
     setUploading(true); setMsg("")
     const ext = file.name.split(".").pop().toLowerCase()
     const path = `galerie/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
@@ -326,83 +527,65 @@ function Galerie() {
     const {data:{publicUrl}} = supabase.storage.from("photos").getPublicUrl(path)
     setForm(f=>({...f,url:publicUrl}))
     setUploading(false)
-    setMsg("Photo uploadee avec succes ! Ajoute une legende et clique Ajouter.")
+    setMsg("Photo uploadee ! Ajoute une legende et clique Ajouter.")
   }
-
   const add = async () => {
     if (!form.url) return
-    const maxOrdre = photos.length>0 ? Math.max(...photos.map(p=>p.ordre||0))+1 : 0
+    const maxOrdre = photos.length>0?Math.max(...photos.map(p=>p.ordre||0))+1:0
     const {error} = await supabase.from("galerie").insert([{...form,ordre:maxOrdre,active:true}])
-    if (!error) { setForm({url:"",legende:"",categorie:"ambiance"}); setMsg("Photo ajoutee a la galerie !"); load() }
+    if (!error) { setForm({url:"",legende:"",categorie:"ambiance"}); setMsg("Photo ajoutee !"); load() }
     else setMsg("Erreur : "+error.message)
   }
-
   const toggle = async (p) => { await supabase.from("galerie").update({active:!p.active}).eq("id",p.id); load() }
-
   const del = async (id,url) => {
     if (!confirm("Supprimer cette photo ?")) return
     await supabase.from("galerie").delete().eq("id",id)
-    try {
-      const path = url.split("/photos/")[1]
-      if (path) await supabase.storage.from("photos").remove([path])
-    } catch(e) {}
+    try { const path=url.split("/photos/")[1]; if(path) await supabase.storage.from("photos").remove([path]) } catch(e) {}
     load()
   }
-
   const CATS = ["ambiance","plats","evenements","equipe","salle","exterieur"]
-
   return (
     <div>
       <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:32}}>Galerie Photos</h2>
-
       <div style={{padding:"24px 20px",background:CARD,border:`1px solid ${BORDER}`,marginBottom:32}}>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Ajouter une photo</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           <div>
-            <button onClick={()=>fileRef.current?.click()} disabled={uploading}
-              style={{...S.btn,width:"100%",background:uploading?"rgba(201,168,76,0.5)":G,padding:"14px 20px"}}>
+            <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...S.btn,width:"100%",background:uploading?"rgba(201,168,76,0.5)":G,padding:"14px 20px"}}>
               {uploading?"Upload en cours...":"📷 Uploader depuis l appareil"}
             </button>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4" style={{display:"none"}} onChange={uploadFile}/>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4" style={{display:"none"}} onChange={uploadFile}/>
             <p style={{fontSize:10,color:MUTED,marginTop:6,textAlign:"center"}}>JPG, PNG, WebP, MP4 · Max 15MB</p>
           </div>
           <div>
-            <p style={{fontSize:10,color:MUTED,marginBottom:8}}>Ou colle une URL externe</p>
-            <input value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} style={{...S.input,marginBottom:0}} placeholder="https://...jpg ou .mp4"/>
+            <p style={{fontSize:10,color:MUTED,marginBottom:8}}>Ou colle une URL</p>
+            <input value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} style={{...S.input,marginBottom:0}} placeholder="https://..."/>
           </div>
         </div>
-
         {form.url&&(
           <div style={{marginBottom:16,border:`1px solid ${BORDER}`,overflow:"hidden"}}>
-            {form.url.match(/\.(mp4|webm|mov)$/i)
+            {form.url.match(/\.(mp4|webm)$/i)
               ? <video src={form.url} style={{width:"100%",maxHeight:180,objectFit:"cover"}} muted playsInline controls/>
               : <img src={form.url} alt="preview" style={{width:"100%",maxHeight:180,objectFit:"cover"}}/>
             }
           </div>
         )}
-
-        <label style={S.label}>Legende (optionnel)</label>
-        <input value={form.legende} onChange={e=>setForm(f=>({...f,legende:e.target.value}))} style={S.input} placeholder="Ex: La salle principale, Service du soir..."/>
-
+        <label style={S.label}>Legende</label>
+        <input value={form.legende} onChange={e=>setForm(f=>({...f,legende:e.target.value}))} style={S.input} placeholder="Ex: La salle principale..."/>
         <label style={S.label}>Categorie</label>
         <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16}}>
           {CATS.map(c=>(
             <button key={c} onClick={()=>setForm(f=>({...f,categorie:c}))} style={{padding:"6px 14px",background:form.categorie===c?G:"transparent",border:`1px solid ${form.categorie===c?G:BORDER}`,color:form.categorie===c?BG:MUTED,fontSize:10,letterSpacing:1,cursor:"pointer",transition:"all .2s",textTransform:"capitalize"}}>{c}</button>
           ))}
         </div>
-
         {msg&&<p style={{fontSize:12,color:msg.includes("Erreur")?"#e74c3c":G,marginBottom:12,lineHeight:1.6}}>{msg}</p>}
-        <button onClick={add} disabled={!form.url} style={{...S.btn,opacity:form.url?1:.4}}>
-          + Ajouter a la galerie
-        </button>
+        <button onClick={add} disabled={!form.url} style={{...S.btn,opacity:form.url?1:.4}}>+ Ajouter a la galerie</button>
       </div>
-
-      <p style={{fontSize:11,color:MUTED,marginBottom:16,fontFamily:"Montserrat,sans-serif"}}>{photos.length} photo{photos.length>1?"s":""} dans la galerie</p>
-
+      <p style={{fontSize:11,color:MUTED,marginBottom:16}}>{photos.length} photo{photos.length>1?"s":""}</p>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
         {photos.map(p=>(
           <div key={p.id} style={{border:`1px solid ${p.active?BORDER:"rgba(245,240,232,0.05)"}`,opacity:p.active?1:.45,overflow:"hidden",transition:"opacity .3s"}}>
-            {p.url.match(/\.(mp4|webm|mov)$/i)
+            {p.url.match(/\.(mp4|webm)$/i)
               ? <video src={p.url} style={{width:"100%",height:130,objectFit:"cover"}} muted playsInline/>
               : <img src={p.url} alt={p.legende||""} style={{width:"100%",height:130,objectFit:"cover"}}/>
             }
@@ -512,9 +695,7 @@ function Avis() {
           <div key={a.id} style={{padding:"20px 18px",background:CARD,border:`1px solid ${a.publie?BORDER:"rgba(245,240,232,0.05)"}`}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:8}}>
               <div>
-                <div style={{display:"flex",gap:3,marginBottom:4}}>
-                  {[1,2,3,4,5].map(i=><span key={i} style={{color:i<=a.note?G:"rgba(201,168,76,0.2)",fontSize:14}}>★</span>)}
-                </div>
+                <div style={{display:"flex",gap:3,marginBottom:4}}>{[1,2,3,4,5].map(i=><span key={i} style={{color:i<=a.note?G:"rgba(201,168,76,0.2)",fontSize:14}}>★</span>)}</div>
                 <p style={{fontFamily:"Playfair Display,serif",fontSize:15,fontStyle:"italic",color:TEXT}}>{a.prenom}</p>
                 <p style={{fontSize:11,color:MUTED,marginTop:2}}>{new Date(a.created_at).toLocaleDateString("fr-FR")}</p>
               </div>
@@ -558,7 +739,6 @@ function Infos() {
   return (
     <div>
       <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:32}}>Infos du Restaurant</h2>
-
       <div style={{marginBottom:40}}>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Informations generales</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -570,21 +750,14 @@ function Infos() {
         <textarea value={info.description||""} onChange={e=>setInfo(i=>({...i,description:e.target.value}))} rows={3} style={{...S.input,resize:"vertical"}} placeholder="Description..."/>
         <button onClick={saveInfo} style={S.btn}>{saved?"Sauvegarde !":"Sauvegarder"}</button>
       </div>
-
       <div style={{padding:"24px 20px",background:CARD,border:`1px solid ${BORDER}`,marginBottom:40}}>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:8}}>Video hero — Page d accueil</h3>
-        <p style={{fontSize:12,color:MUTED,marginBottom:16,lineHeight:1.7}}>
-          Upload une video MP4 dans la section <strong style={{color:G}}>Galerie</strong>, copie son URL puis colle-la ici.<br/>
-          Elle s affichera en fond cinematique sur la page d accueil.
-        </p>
-        <label style={S.label}>URL de la video (.mp4)</label>
+        <p style={{fontSize:12,color:MUTED,marginBottom:16,lineHeight:1.7}}>Upload une video dans Galerie, copie son URL et colle-la ici.</p>
+        <label style={S.label}>URL video (.mp4)</label>
         <input value={info.video_hero_url||""} onChange={e=>setInfo(i=>({...i,video_hero_url:e.target.value}))} style={S.input} placeholder="https://... .mp4"/>
-        {info.video_hero_url&&(
-          <video src={info.video_hero_url} style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,border:`1px solid ${BORDER}`}} muted playsInline controls/>
-        )}
+        {info.video_hero_url&&<video src={info.video_hero_url} style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,border:`1px solid ${BORDER}`}} muted playsInline controls/>}
         <button onClick={saveInfo} style={S.btn}>{saved?"Sauvegarde !":"Sauvegarder la video"}</button>
       </div>
-
       <div style={{marginBottom:40}}>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Horaires d ouverture</h3>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -612,7 +785,6 @@ function Infos() {
         </div>
         <button onClick={saveH} style={{...S.btn,marginTop:16}}>{saved?"Sauvegarde !":"Sauvegarder horaires"}</button>
       </div>
-
       <div>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Fermetures exceptionnelles</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto",gap:10,marginBottom:16,alignItems:"end"}}>
@@ -650,7 +822,7 @@ function Equipe() {
   const add = async () => {
     if (!form.email||!form.nom) return
     const {error} = await supabase.from("admins").insert([form])
-    if (!error) { setMsg("Sous-admin ajoute. Creez son compte sur Supabase Dashboard → Authentication → Users"); setForm({email:"",nom:"",role:"sous_admin"}); load() }
+    if (!error) { setMsg("Sous-admin ajoute. Creez son compte sur Supabase → Authentication → Users"); setForm({email:"",nom:"",role:"sous_admin"}); load() }
     else setMsg("Erreur : "+error.message)
   }
   const toggle = async (a) => { await supabase.from("admins").update({actif:!a.actif}).eq("id",a.id); load() }
@@ -708,26 +880,17 @@ function AdminShell({ onLogout }) {
   const [open, setOpen] = useState(false)
   const [mobile, setMobile] = useState(false)
   useEffect(()=>{
-    const check = () => setMobile(window.innerWidth < 769)
+    const check = () => setMobile(window.innerWidth<769)
     check(); window.addEventListener("resize",check)
     return ()=>window.removeEventListener("resize",check)
   },[])
-  const CONTENT = {
-    dashboard:<Dashboard/>,
-    reservations:<Reservations/>,
-    carte:<Carte/>,
-    galerie:<Galerie/>,
-    evenements:<Evenements/>,
-    avis:<Avis/>,
-    infos:<Infos/>,
-    equipe:<Equipe/>
-  }
+  const CONTENT = {dashboard:<Dashboard/>,reservations:<Reservations/>,carte:<Carte/>,galerie:<Galerie/>,evenements:<Evenements/>,avis:<Avis/>,infos:<Infos/>,equipe:<Equipe/>}
   return (
     <div style={{display:"flex",minHeight:"100vh",background:BG,color:TEXT}}>
       {(open||!mobile)&&(
         <aside style={{width:220,background:"rgba(15,13,10,0.98)",borderRight:`1px solid ${BORDER}`,display:"flex",flexDirection:"column",flexShrink:0,position:mobile?"fixed":"sticky",top:0,left:0,height:"100vh",zIndex:200,overflowY:"auto"}}>
           <div style={{padding:"20px 20px 16px",borderBottom:`1px solid rgba(201,168,76,0.1)`,marginBottom:8}}>
-            <img src="/logo.png" style={{width:44,height:44,objectFit:"contain"}} alt="logo"/>
+            <img src="/logo.PNG" style={{width:44,height:44,objectFit:"contain"}} alt="logo"/>
             <p style={{fontFamily:"Playfair Display,serif",fontSize:14,fontStyle:"italic",color:G,marginTop:8}}>Le Goya</p>
             <p style={{fontSize:9,letterSpacing:2,color:MUTED,textTransform:"uppercase",marginTop:2}}>Administration</p>
           </div>
