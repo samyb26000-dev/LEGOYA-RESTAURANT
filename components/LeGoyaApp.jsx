@@ -55,7 +55,7 @@ function LoadingScreen({ onDone }) {
   }, [])
   return (
     <div className={`loading-screen${done?" done":""}`}>
-      <div className="loading-logo"><img src="/logo.PNG" style={{width:100,height:100,objectFit:"contain"}} alt="Le Goya"/></div>
+      <div className="loading-logo"><img src="/logo.png" style={{width:100,height:100,objectFit:"contain"}} alt="Le Goya"/></div>
       <h1 className="loading-title">Le Goya</h1>
       <p className="loading-sub">Restaurant Gastronomique</p>
       <div className="loading-bar-wrap"><div className="loading-bar"/></div>
@@ -115,7 +115,7 @@ function GoldParticles() {
 function Logo({ size }) {
   return (
     <div className="logo-wrap" style={{width:size,height:size}}>
-      <img src="/logo.PNG" alt="Le Goya" className="logo-img" style={{width:size,height:size}}/>
+      <img src="/logo.png" alt="Le Goya" className="logo-img" style={{width:size,height:size}}/>
     </div>
   )
 }
