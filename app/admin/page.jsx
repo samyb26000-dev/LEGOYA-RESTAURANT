@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { supabase } from "../../lib/supabase"
 
 const G = "#C9A84C"
@@ -65,16 +65,9 @@ function Dashboard() {
       supabase.from("evenements").select("id",{count:"exact",head:true}).eq("statut","nouveau"),
       supabase.from("avis").select("id",{count:"exact",head:true}).eq("publie",false),
     ]).then(([p1,p2,r1,r2,e1,a1]) => {
-      setStats({
-        caJour:p1.data?.reduce((s,p)=>s+p.montant,0)||0,
-        caMois:p2.data?.reduce((s,p)=>s+p.montant,0)||0,
-        nbRes:r1.count||0,attente:r2.count||0,evt:e1.count||0,avis:a1.count||0,
-      })
+      setStats({caJour:p1.data?.reduce((s,p)=>s+p.montant,0)||0,caMois:p2.data?.reduce((s,p)=>s+p.montant,0)||0,nbRes:r1.count||0,attente:r2.count||0,evt:e1.count||0,avis:a1.count||0})
     })
-    const days = Array.from({length:7},(_,i)=>{
-      const d = new Date(); d.setDate(d.getDate()-6+i)
-      return d.toISOString().split("T")[0]
-    })
+    const days = Array.from({length:7},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-6+i); return d.toISOString().split("T")[0] })
     Promise.all(days.map(d=>supabase.from("reservations").select("id",{count:"exact",head:true}).eq("date",d))).then(results=>{
       setChart(days.map((d,i)=>({d:d.slice(5),v:results[i].count||0})))
     })
@@ -90,14 +83,7 @@ function Dashboard() {
         <p style={{fontSize:11,color:MUTED,letterSpacing:1}}>{new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10,marginBottom:28}}>
-        {[
-          {l:"CA Aujourd hui",v:stats.caJour.toFixed(2)+"€",i:"💰",c:G},
-          {l:"CA Ce mois",v:stats.caMois.toFixed(2)+"€",i:"📈",c:G},
-          {l:"Total reservations",v:stats.nbRes,i:"📅",c:TEXT},
-          {l:"En attente confirm.",v:stats.attente,i:"⏳",c:"#f39c12"},
-          {l:"Demandes evenement",v:stats.evt,i:"🎪",c:"#3498db"},
-          {l:"Avis a moderer",v:stats.avis,i:"⭐",c:"#e74c3c"},
-        ].map((s,i)=>(
+        {[{l:"CA Aujourd hui",v:stats.caJour.toFixed(2)+"€",i:"💰",c:G},{l:"CA Ce mois",v:stats.caMois.toFixed(2)+"€",i:"📈",c:G},{l:"Total reservations",v:stats.nbRes,i:"📅",c:TEXT},{l:"En attente",v:stats.attente,i:"⏳",c:"#f39c12"},{l:"Demandes event.",v:stats.evt,i:"🎪",c:"#3498db"},{l:"Avis a moderer",v:stats.avis,i:"⭐",c:"#e74c3c"}].map((s,i)=>(
           <div key={i} style={{padding:"18px 14px",background:CARD,border:`1px solid ${BORDER}`,borderTop:`2px solid ${s.c}`}}>
             <div style={{fontSize:20,marginBottom:8}}>{s.i}</div>
             <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:s.c,fontStyle:"italic",lineHeight:1}}>{s.v}</div>
@@ -161,8 +147,7 @@ function Reservations() {
   const load = async () => {
     let q = supabase.from("reservations").select("*").order("date").order("heure")
     if (filter!=="tous") q = q.eq("statut",filter)
-    const {data:d} = await q
-    setData(d||[])
+    const {data:d} = await q; setData(d||[])
   }
   useEffect(()=>{load()},[filter])
   const update = async (id,fields) => { await supabase.from("reservations").update(fields).eq("id",id); load(); setSel(null) }
@@ -282,11 +267,9 @@ function Carte() {
       {modal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(8,6,4,0.95)",backdropFilter:"blur(16px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}} onClick={()=>setModal(null)}>
           <div style={{maxWidth:520,width:"100%",padding:"36px 28px",border:`1px solid ${BORDER}`,background:"#0F0D0A",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G,marginBottom:24}}>{modal==="new"?"Nouveau plat":"Modifier le plat"}</h3>
-            <label style={S.label}>Nom du plat</label>
-            <input value={form.nom} onChange={e=>up("nom",e.target.value)} style={S.input} placeholder="Nom"/>
-            <label style={S.label}>Description</label>
-            <textarea value={form.description} onChange={e=>up("description",e.target.value)} rows={3} style={{...S.input,resize:"vertical"}} placeholder="Description"/>
+            <h3 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G,marginBottom:24}}>{modal==="new"?"Nouveau plat":"Modifier"}</h3>
+            <label style={S.label}>Nom</label><input value={form.nom} onChange={e=>up("nom",e.target.value)} style={S.input} placeholder="Nom du plat"/>
+            <label style={S.label}>Description</label><textarea value={form.description} onChange={e=>up("description",e.target.value)} rows={3} style={{...S.input,resize:"vertical"}} placeholder="Description"/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div><label style={S.label}>Prix (€)</label><input type="number" value={form.prix} onChange={e=>up("prix",e.target.value)} style={S.input} placeholder="0.00"/></div>
               <div><label style={S.label}>Categorie</label>
@@ -295,9 +278,9 @@ function Carte() {
                 </select>
               </div>
             </div>
-            <label style={S.label}>URL Photo</label>
-            <input value={form.photo_url||""} onChange={e=>up("photo_url",e.target.value)} style={S.input} placeholder="https://..."/>
-            <label style={{...S.label,marginBottom:12}}>14 Allergenes obligatoires (EU)</label>
+            <label style={S.label}>URL Photo</label><input value={form.photo_url||""} onChange={e=>up("photo_url",e.target.value)} style={S.input} placeholder="https://..."/>
+            {form.photo_url&&<img src={form.photo_url} alt="preview" style={{width:"100%",maxHeight:120,objectFit:"cover",marginBottom:12,border:`1px solid ${BORDER}`}}/>}
+            <label style={{...S.label,marginBottom:12}}>14 Allergenes obligatoires</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:20}}>
               {ALL_ALG.map(a=>(
                 <button key={a} onClick={()=>toggleAlg(a)} style={{padding:"5px 10px",background:(form.allergenes||[]).includes(a)?G:"transparent",border:`1px solid ${(form.allergenes||[]).includes(a)?G:BORDER}`,color:(form.allergenes||[]).includes(a)?BG:MUTED,fontSize:10,cursor:"pointer",transition:"all .2s"}}>{a}</button>
@@ -305,7 +288,7 @@ function Carte() {
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
               <input type="checkbox" checked={form.actif} onChange={e=>up("actif",e.target.checked)} id="actif"/>
-              <label htmlFor="actif" style={{...S.label,marginBottom:0}}>Plat visible sur le site</label>
+              <label htmlFor="actif" style={{...S.label,marginBottom:0}}>Visible sur le site</label>
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={save} style={{...S.btn,flex:1}}>Sauvegarder</button>
@@ -315,6 +298,131 @@ function Carte() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function Galerie() {
+  const [photos, setPhotos] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [form, setForm] = useState({url:"",legende:"",categorie:"ambiance"})
+  const [msg, setMsg] = useState("")
+  const fileRef = useRef(null)
+  const load = async () => {
+    const {data} = await supabase.from("galerie").select("*").order("ordre")
+    setPhotos(data||[])
+  }
+  useEffect(()=>{load()},[])
+
+  const uploadFile = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 15*1024*1024) { setMsg("Fichier trop lourd (max 15MB)"); return }
+    setUploading(true); setMsg("")
+    const ext = file.name.split(".").pop().toLowerCase()
+    const path = `galerie/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const {error} = await supabase.storage.from("photos").upload(path,file,{contentType:file.type,upsert:false})
+    if (error) { setMsg("Erreur upload : "+error.message); setUploading(false); return }
+    const {data:{publicUrl}} = supabase.storage.from("photos").getPublicUrl(path)
+    setForm(f=>({...f,url:publicUrl}))
+    setUploading(false)
+    setMsg("Photo uploadee avec succes ! Ajoute une legende et clique Ajouter.")
+  }
+
+  const add = async () => {
+    if (!form.url) return
+    const maxOrdre = photos.length>0 ? Math.max(...photos.map(p=>p.ordre||0))+1 : 0
+    const {error} = await supabase.from("galerie").insert([{...form,ordre:maxOrdre,active:true}])
+    if (!error) { setForm({url:"",legende:"",categorie:"ambiance"}); setMsg("Photo ajoutee a la galerie !"); load() }
+    else setMsg("Erreur : "+error.message)
+  }
+
+  const toggle = async (p) => { await supabase.from("galerie").update({active:!p.active}).eq("id",p.id); load() }
+
+  const del = async (id,url) => {
+    if (!confirm("Supprimer cette photo ?")) return
+    await supabase.from("galerie").delete().eq("id",id)
+    try {
+      const path = url.split("/photos/")[1]
+      if (path) await supabase.storage.from("photos").remove([path])
+    } catch(e) {}
+    load()
+  }
+
+  const CATS = ["ambiance","plats","evenements","equipe","salle","exterieur"]
+
+  return (
+    <div>
+      <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:32}}>Galerie Photos</h2>
+
+      <div style={{padding:"24px 20px",background:CARD,border:`1px solid ${BORDER}`,marginBottom:32}}>
+        <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Ajouter une photo</h3>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          <div>
+            <button onClick={()=>fileRef.current?.click()} disabled={uploading}
+              style={{...S.btn,width:"100%",background:uploading?"rgba(201,168,76,0.5)":G,padding:"14px 20px"}}>
+              {uploading?"Upload en cours...":"📷 Uploader depuis l appareil"}
+            </button>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4" style={{display:"none"}} onChange={uploadFile}/>
+            <p style={{fontSize:10,color:MUTED,marginTop:6,textAlign:"center"}}>JPG, PNG, WebP, MP4 · Max 15MB</p>
+          </div>
+          <div>
+            <p style={{fontSize:10,color:MUTED,marginBottom:8}}>Ou colle une URL externe</p>
+            <input value={form.url} onChange={e=>setForm(f=>({...f,url:e.target.value}))} style={{...S.input,marginBottom:0}} placeholder="https://...jpg ou .mp4"/>
+          </div>
+        </div>
+
+        {form.url&&(
+          <div style={{marginBottom:16,border:`1px solid ${BORDER}`,overflow:"hidden"}}>
+            {form.url.match(/\.(mp4|webm|mov)$/i)
+              ? <video src={form.url} style={{width:"100%",maxHeight:180,objectFit:"cover"}} muted playsInline controls/>
+              : <img src={form.url} alt="preview" style={{width:"100%",maxHeight:180,objectFit:"cover"}}/>
+            }
+          </div>
+        )}
+
+        <label style={S.label}>Legende (optionnel)</label>
+        <input value={form.legende} onChange={e=>setForm(f=>({...f,legende:e.target.value}))} style={S.input} placeholder="Ex: La salle principale, Service du soir..."/>
+
+        <label style={S.label}>Categorie</label>
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16}}>
+          {CATS.map(c=>(
+            <button key={c} onClick={()=>setForm(f=>({...f,categorie:c}))} style={{padding:"6px 14px",background:form.categorie===c?G:"transparent",border:`1px solid ${form.categorie===c?G:BORDER}`,color:form.categorie===c?BG:MUTED,fontSize:10,letterSpacing:1,cursor:"pointer",transition:"all .2s",textTransform:"capitalize"}}>{c}</button>
+          ))}
+        </div>
+
+        {msg&&<p style={{fontSize:12,color:msg.includes("Erreur")?"#e74c3c":G,marginBottom:12,lineHeight:1.6}}>{msg}</p>}
+        <button onClick={add} disabled={!form.url} style={{...S.btn,opacity:form.url?1:.4}}>
+          + Ajouter a la galerie
+        </button>
+      </div>
+
+      <p style={{fontSize:11,color:MUTED,marginBottom:16,fontFamily:"Montserrat,sans-serif"}}>{photos.length} photo{photos.length>1?"s":""} dans la galerie</p>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+        {photos.map(p=>(
+          <div key={p.id} style={{border:`1px solid ${p.active?BORDER:"rgba(245,240,232,0.05)"}`,opacity:p.active?1:.45,overflow:"hidden",transition:"opacity .3s"}}>
+            {p.url.match(/\.(mp4|webm|mov)$/i)
+              ? <video src={p.url} style={{width:"100%",height:130,objectFit:"cover"}} muted playsInline/>
+              : <img src={p.url} alt={p.legende||""} style={{width:"100%",height:130,objectFit:"cover"}}/>
+            }
+            <div style={{padding:"10px 12px",background:"rgba(5,4,2,0.9)"}}>
+              {p.legende&&<p style={{fontSize:11,color:TEXT,marginBottom:4,lineHeight:1.4}}>{p.legende}</p>}
+              <p style={{fontSize:9,color:G,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{p.categorie}</p>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>toggle(p)} style={{...S.btnOut,flex:1,padding:"5px 8px",fontSize:9,color:p.active?"#e74c3c":G,borderColor:p.active?"#e74c3c":G}}>{p.active?"Cacher":"Afficher"}</button>
+                <button onClick={()=>del(p.id,p.url)} style={{...S.btnRed,padding:"5px 10px",fontSize:12}}>🗑</button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {photos.length===0&&(
+          <div style={{gridColumn:"1/-1",textAlign:"center",padding:"60px 20px",color:MUTED}}>
+            <div style={{fontSize:40,marginBottom:12}}>📸</div>
+            <p style={{fontSize:13}}>Aucune photo. Uploadez votre premiere image !</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -383,8 +491,7 @@ function Avis() {
     let q = supabase.from("avis").select("*").order("created_at",{ascending:false})
     if (filter==="publies") q = q.eq("publie",true)
     if (filter==="attente") q = q.eq("publie",false)
-    const {data:d} = await q
-    setData(d||[])
+    const {data:d} = await q; setData(d||[])
   }
   useEffect(()=>{load()},[filter])
   const toggle = async (a) => { await supabase.from("avis").update({publie:!a.publie}).eq("id",a.id); load() }
@@ -427,7 +534,7 @@ function Avis() {
 }
 
 function Infos() {
-  const [info, setInfo] = useState({name:"",phone:"",email:"",address:"",city:"",description:"",instagram:"",facebook:""})
+  const [info, setInfo] = useState({name:"",phone:"",email:"",address:"",city:"",description:"",instagram:"",facebook:"",video_hero_url:""})
   const [horaires, setHoraires] = useState([])
   const [fermetures, setFermetures] = useState([])
   const [nf, setNf] = useState({date_debut:"",date_fin:"",motif:""})
@@ -451,6 +558,7 @@ function Infos() {
   return (
     <div>
       <h2 style={{fontFamily:"Playfair Display,serif",fontSize:28,fontStyle:"italic",color:TEXT,marginBottom:32}}>Infos du Restaurant</h2>
+
       <div style={{marginBottom:40}}>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Informations generales</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -462,6 +570,21 @@ function Infos() {
         <textarea value={info.description||""} onChange={e=>setInfo(i=>({...i,description:e.target.value}))} rows={3} style={{...S.input,resize:"vertical"}} placeholder="Description..."/>
         <button onClick={saveInfo} style={S.btn}>{saved?"Sauvegarde !":"Sauvegarder"}</button>
       </div>
+
+      <div style={{padding:"24px 20px",background:CARD,border:`1px solid ${BORDER}`,marginBottom:40}}>
+        <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:8}}>Video hero — Page d accueil</h3>
+        <p style={{fontSize:12,color:MUTED,marginBottom:16,lineHeight:1.7}}>
+          Upload une video MP4 dans la section <strong style={{color:G}}>Galerie</strong>, copie son URL puis colle-la ici.<br/>
+          Elle s affichera en fond cinematique sur la page d accueil.
+        </p>
+        <label style={S.label}>URL de la video (.mp4)</label>
+        <input value={info.video_hero_url||""} onChange={e=>setInfo(i=>({...i,video_hero_url:e.target.value}))} style={S.input} placeholder="https://... .mp4"/>
+        {info.video_hero_url&&(
+          <video src={info.video_hero_url} style={{width:"100%",maxHeight:160,objectFit:"cover",marginBottom:12,border:`1px solid ${BORDER}`}} muted playsInline controls/>
+        )}
+        <button onClick={saveInfo} style={S.btn}>{saved?"Sauvegarde !":"Sauvegarder la video"}</button>
+      </div>
+
       <div style={{marginBottom:40}}>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Horaires d ouverture</h3>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -489,6 +612,7 @@ function Infos() {
         </div>
         <button onClick={saveH} style={{...S.btn,marginTop:16}}>{saved?"Sauvegarde !":"Sauvegarder horaires"}</button>
       </div>
+
       <div>
         <h3 style={{fontSize:11,letterSpacing:3,color:G,textTransform:"uppercase",marginBottom:20}}>Fermetures exceptionnelles</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto",gap:10,marginBottom:16,alignItems:"end"}}>
@@ -548,7 +672,7 @@ function Equipe() {
         </div>
         {msg&&<p style={{fontSize:12,color:G,marginBottom:12,lineHeight:1.6}}>{msg}</p>}
         <button onClick={add} style={S.btn}>Ajouter</button>
-        <p style={{fontSize:11,color:MUTED,marginTop:12}}>Creez ensuite le compte auth sur Supabase Dashboard → Authentication → Users</p>
+        <p style={{fontSize:11,color:MUTED,marginTop:12}}>Creez ensuite le compte sur Supabase → Authentication → Users</p>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         {data.map(a=>(
@@ -572,6 +696,7 @@ const SECTIONS = [
   {k:"dashboard",l:"Dashboard",i:"📊"},
   {k:"reservations",l:"Reservations",i:"📅"},
   {k:"carte",l:"La Carte",i:"🍽️"},
+  {k:"galerie",l:"Galerie",i:"📸"},
   {k:"evenements",l:"Evenements",i:"🎪"},
   {k:"avis",l:"Avis",i:"⭐"},
   {k:"infos",l:"Infos",i:"⚙️"},
@@ -584,11 +709,19 @@ function AdminShell({ onLogout }) {
   const [mobile, setMobile] = useState(false)
   useEffect(()=>{
     const check = () => setMobile(window.innerWidth < 769)
-    check()
-    window.addEventListener("resize",check)
+    check(); window.addEventListener("resize",check)
     return ()=>window.removeEventListener("resize",check)
   },[])
-  const CONTENT = {dashboard:<Dashboard/>,reservations:<Reservations/>,carte:<Carte/>,evenements:<Evenements/>,avis:<Avis/>,infos:<Infos/>,equipe:<Equipe/>}
+  const CONTENT = {
+    dashboard:<Dashboard/>,
+    reservations:<Reservations/>,
+    carte:<Carte/>,
+    galerie:<Galerie/>,
+    evenements:<Evenements/>,
+    avis:<Avis/>,
+    infos:<Infos/>,
+    equipe:<Equipe/>
+  }
   return (
     <div style={{display:"flex",minHeight:"100vh",background:BG,color:TEXT}}>
       {(open||!mobile)&&(
@@ -624,12 +757,8 @@ export default function AdminPage() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{
-      setUser(session?.user||null); setLoading(false)
-    })
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{
-      setUser(session?.user||null)
-    })
+    supabase.auth.getSession().then(({data:{session}})=>{ setUser(session?.user||null); setLoading(false) })
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{ setUser(session?.user||null) })
     return()=>subscription.unsubscribe()
   },[])
   if (loading) return <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}><p style={{color:G,fontFamily:"Playfair Display,serif",fontSize:20,fontStyle:"italic"}}>Chargement...</p></div>
