@@ -31,7 +31,7 @@ function Login() {
     <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:380,width:"100%",padding:"48px 36px",border:`1px solid ${BORDER}`,background:"rgba(15,13,10,0.9)"}}>
         <div style={{textAlign:"center",marginBottom:36}}>
-          <img src="/logo.PNG" style={{width:70,height:70,objectFit:"contain",marginBottom:16}} alt="logo"/>
+          <img src="/logo.png" style={{width:70,height:70,objectFit:"contain",marginBottom:16}} alt="logo"/>
           <h1 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontStyle:"italic",color:G}}>Panel Admin</h1>
           <p style={{fontSize:10,letterSpacing:3,color:MUTED,textTransform:"uppercase",marginTop:6}}>Le Goya</p>
         </div>
@@ -727,7 +727,7 @@ function AdminShell({ onLogout }) {
       {(open||!mobile)&&(
         <aside style={{width:220,background:"rgba(15,13,10,0.98)",borderRight:`1px solid ${BORDER}`,display:"flex",flexDirection:"column",flexShrink:0,position:mobile?"fixed":"sticky",top:0,left:0,height:"100vh",zIndex:200,overflowY:"auto"}}>
           <div style={{padding:"20px 20px 16px",borderBottom:`1px solid rgba(201,168,76,0.1)`,marginBottom:8}}>
-            <img src="/logo.PNG" style={{width:44,height:44,objectFit:"contain"}} alt="logo"/>
+            <img src="/logo.png" style={{width:44,height:44,objectFit:"contain"}} alt="logo"/>
             <p style={{fontFamily:"Playfair Display,serif",fontSize:14,fontStyle:"italic",color:G,marginTop:8}}>Le Goya</p>
             <p style={{fontSize:9,letterSpacing:2,color:MUTED,textTransform:"uppercase",marginTop:2}}>Administration</p>
           </div>
