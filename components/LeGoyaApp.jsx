@@ -327,4 +327,498 @@ function Avis() {
               <div style={{display:"flex",gap:3,marginBottom:14}}>
                 {[1,2,3,4,5].map(i=><span key={i} style={{color:i<=a.note?"#C9A84C":"rgba(201,168,76,0.2)",fontSize:15}}>★</span>)}
               </div>
-              <p style={{fontSize:14,color:"rgba(245,240,232,0.72)",lineHeight:1.9,marginBottom:18,fontStyle:"italic",fontFamily:"Playfair Display,serif"}}>{a.comment
+              <p style={{fontSize:14,color:"rgba(245,240,232,0.72)",lineHeight:1.9,marginBottom:18,fontStyle:"italic",fontFamily:"Playfair Display,serif"}}>{a.commentaire}</p>
+              <p style={{fontSize:11,color:"#C9A84C",letterSpacing:1,fontFamily:"Montserrat,sans-serif"}}>{a.prenom}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── MENU ─────────────────────────────────────────────────────────────────────
+const ITEMS_DEFAULT = [
+  {cat:"Entrees",name:"Foie Gras Poele",desc:"Chutney de figues, brioche toastee, reduction de Porto",prix:"28",e:"🍞"},
+  {cat:"Entrees",name:"Tartare de Saint-Jacques",desc:"Agrumes, caviar de truite, huile de truffe blanche",prix:"32",e:"🐚"},
+  {cat:"Entrees",name:"Veloute de Champignons",desc:"Truffe noire, creme fouettee, huile de noisette",prix:"22",e:"🍄"},
+  {cat:"Plats",name:"Filet de Boeuf Rossini",desc:"Medaillon de foie gras, sauce Perigueux",prix:"58",e:"🥩"},
+  {cat:"Plats",name:"Homard Bleu Roti",desc:"Beurre de corail, gnocchi, bisque legere",prix:"72",e:"🦞"},
+  {cat:"Plats",name:"Pigeon en Croute Herbes",desc:"Jus de gibier, puree de celeri, cepes",prix:"48",e:"🌿"},
+  {cat:"Desserts",name:"Souffle Grand Marnier",desc:"Creme anglaise vanille Bourbon",prix:"18",e:"🍊"},
+  {cat:"Desserts",name:"Tarte Chocolat",desc:"Caramel sale, glace praline, feuille or",prix:"16",e:"🍫"},
+  {cat:"Desserts",name:"Mille-Feuille",desc:"Creme vanille, caramel beurre sale, framboises",prix:"15",e:"🍰"},
+]
+
+function MenuPage() {
+  const [cat, setCat] = useState("Tous")
+  const [sel, setSel] = useState(null)
+  const [plats, setPlats] = useState([])
+  useEffect(() => {
+    supabase.from("plats").select("*,categories(nom)").eq("actif",true).order("ordre").then(({data}) => {
+      if (data && data.length>0) setPlats(data.map(p=>({...p,cat:p.categories?.nom,name:p.nom,desc:p.description,prix:p.prix?.toString(),e:"🍽️"})))
+      else setPlats(ITEMS_DEFAULT)
+    })
+  }, [])
+  const allCats = ["Tous",...new Set(plats.map(p=>p.cat).filter(Boolean))]
+  const filtered = cat==="Tous" ? plats : plats.filter(p=>p.cat===cat)
+  return (
+    <section className="page-section">
+      <SectionHeader label="Notre Carte" title="Le Menu" subtitle="Des produits exception, sublimes par le Chef. Chaque assiette est une oeuvre ephemere."/>
+      <Reveal>
+        <div className="filter-bar">
+          {allCats.map(c=>(
+            <button key={c} onClick={()=>setCat(c)} className={`filter-btn ${cat===c?"filter-active":"filter-inactive"}`}>{c}</button>
+          ))}
+        </div>
+      </Reveal>
+      <div className="menu-grid">
+        {filtered.map((item,i) => (
+          <Reveal key={item.id||i} delay={i*.05}>
+            <div className="menu-card" onClick={() => setSel(item)}>
+              {item.photo_url
+                ? <img src={item.photo_url} alt={item.name} style={{width:"100%",height:160,objectFit:"cover",marginBottom:16}}/>
+                : <div style={{fontSize:30,marginBottom:14}}>{item.e||"🍽️"}</div>
+              }
+              <p className="menu-cat">{item.cat}</p>
+              <h3 className="menu-name">{item.name}</h3>
+              <p className="menu-desc">{item.desc}</p>
+              {item.allergenes?.length>0&&<p style={{fontSize:10,color:"rgba(201,168,76,0.45)",marginBottom:8,fontFamily:"Montserrat,sans-serif"}}>⚠ {item.allergenes.join(", ")}</p>}
+              <p className="menu-prix">{item.prix}€</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      {sel && (
+        <div className="modal-overlay" onClick={() => setSel(null)}>
+          <div className="modal-box" onClick={e=>e.stopPropagation()}>
+            {sel.photo_url
+              ? <img src={sel.photo_url} alt={sel.name} style={{width:"100%",height:180,objectFit:"cover",marginBottom:20}}/>
+              : <div style={{fontSize:52,marginBottom:20}}>{sel.e||"🍽️"}</div>
+            }
+            <p className="modal-cat">{sel.cat}</p>
+            <h3 className="modal-name">{sel.name}</h3>
+            <Divider/>
+            <p className="modal-desc">{sel.desc}</p>
+            {sel.allergenes?.length>0&&(
+              <div style={{marginTop:18,padding:"11px 16px",background:"rgba(201,168,76,0.05)",border:"1px solid rgba(201,168,76,0.18)"}}>
+                <p style={{fontSize:9,letterSpacing:2,color:"#C9A84C",textTransform:"uppercase",marginBottom:6,fontFamily:"Montserrat,sans-serif"}}>Allergenes</p>
+                <p style={{fontSize:12,color:"rgba(245,240,232,0.6)"}}>{sel.allergenes.join(" · ")}</p>
+              </div>
+            )}
+            <p className="modal-prix">{sel.prix}€</p>
+            <button className="btn-close" onClick={() => setSel(null)}>Fermer</button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─── EVENEMENTS ───────────────────────────────────────────────────────────────
+const EVT_TYPES = ["Mariage","Anniversaire","Seminaire","Soiree privee","Repas entreprise","Autre"]
+
+function EventsPage() {
+  const [form, setForm] = useState({type:"",date:"",personnes:"",budget:"",prenom:"",nom:"",email:"",telephone:"",message:""})
+  const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [errors, setErrors] = useState({})
+  const up = (k,v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:""})) }
+
+  const validate = () => {
+    const e = {}
+    if (!form.type) e.type = "Selectionnez un type"
+    if (!validateName(form.prenom)) e.prenom = "Prenom invalide (min. 2 caracteres)"
+    if (!validateEmail(form.email)) e.email = "Adresse email invalide"
+    if (!validatePhone(form.telephone)) e.telephone = "Numero de telephone francais invalide (ex: 06 12 34 56 78)"
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const send = async () => {
+    if (!validate()) return
+    setSending(true)
+    const {error} = await supabase.from("evenements").insert([{
+      type_event:form.type, date_souhaitee:form.date||null,
+      nombre_personnes:form.personnes?parseInt(form.personnes):null,
+      budget:form.budget, prenom:form.prenom, nom:form.nom,
+      email:form.email, telephone:form.telephone, message:form.message,
+    }])
+    setSending(false)
+    if (!error) setSent(true)
+  }
+
+  const iS = (k) => ({width:"100%",padding:"12px 14px",background:"rgba(245,240,232,0.04)",border:`1px solid ${errors[k]?"rgba(231,76,60,0.6)":"rgba(201,168,76,0.18)"}`,color:"#F5F0E8",fontSize:13,outline:"none",marginBottom:errors[k]?4:10,transition:"border-color .3s"})
+  const lS = {fontSize:10,letterSpacing:3,color:"#C9A84C",textTransform:"uppercase",display:"block",marginBottom:8,fontFamily:"Montserrat,sans-serif"}
+  const errStyle = {fontSize:11,color:"#e74c3c",marginBottom:10,fontFamily:"Montserrat,sans-serif"}
+
+  return (
+    <section className="page-section">
+      <SectionHeader label="Evenementiel" title="Votre Evenement" subtitle="Mariage, anniversaire, seminaire, repas entreprise. Une experience sur mesure."/>
+      <Reveal>
+        <div style={{maxWidth:960,margin:"0 auto 64px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:1,background:"rgba(201,168,76,0.07)"}}>
+          {[
+            {t:"Mariages",d:"Une reception d exception pour le plus beau jour de votre vie.",i:"💍"},
+            {t:"Anniversaires",d:"Celebrez dans un ecrin de raffinement. Menu degustation, decoration.",i:"✨"},
+            {t:"Seminaires",d:"Impressionnez collaborateurs et clients autour d un repas gastronomique.",i:"🤝"},
+            {t:"Soirees Privees",d:"Privatisation de la salle pour vos evenements exclusifs.",i:"🥂"},
+            {t:"Repas Entreprise",d:"Fidelisez vos equipes autour d une table d exception.",i:"🏢"},
+            {t:"Cocktails",d:"Cocktail dinatoire ou aperitif de prestige avec mignardises.",i:"🍾"},
+          ].map((ev,i)=>(
+            <div key={i} className="evt-card">
+              <div className="evt-icon">{ev.i}</div>
+              <h3 className="evt-title">{ev.t}</h3>
+              <p className="evt-desc">{ev.d}</p>
+            </div>
+          ))}
+        </div>
+      </Reveal>
+      <div style={{maxWidth:560,margin:"0 auto"}}>
+        <SectionHeader label="Devis gratuit" title="Demande de Devis"/>
+        {sent ? (
+          <Reveal>
+            <div style={{textAlign:"center",padding:"44px 20px"}}>
+              <div style={{fontSize:52,marginBottom:22,animation:"float 3s ease-in-out infinite"}}>✦</div>
+              <h3 style={{fontFamily:"Playfair Display,serif",fontSize:30,fontStyle:"italic",color:"#C9A84C",marginBottom:14}}>Demande envoyee</h3>
+              <Divider/>
+              <p style={{marginTop:22,fontSize:13,lineHeight:2,color:"rgba(245,240,232,0.6)"}}>Nous vous recontactons sous 24h.</p>
+            </div>
+          </Reveal>
+        ) : (
+          <Reveal>
+            <div>
+              <label style={lS}>Type d evenement *</label>
+              {errors.type && <p style={errStyle}>{errors.type}</p>}
+              <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:18}}>
+                {EVT_TYPES.map(t=>(
+                  <button key={t} onClick={()=>up("type",t)} style={{padding:"8px 16px",background:form.type===t?"#C9A84C":"transparent",border:`1px solid ${form.type===t?"#C9A84C":"rgba(201,168,76,0.2)"}`,color:form.type===t?"#080604":"rgba(245,240,232,0.55)",fontSize:11,transition:"all .3s",cursor:"none"}}>{t}</button>
+                ))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}} className="form-grid">
+                <div><label style={lS}>Date souhaitee</label><input type="date" value={form.date} onChange={e=>up("date",e.target.value)} style={iS("date")}/></div>
+                <div><label style={lS}>Nombre de personnes</label><input type="number" value={form.personnes} onChange={e=>up("personnes",e.target.value)} style={iS("personnes")} placeholder="Ex: 50"/></div>
+              </div>
+              <label style={lS}>Budget estime</label>
+              <select value={form.budget} onChange={e=>up("budget",e.target.value)} style={{...iS("budget"),cursor:"none",marginBottom:10}}>
+                <option value="">Selectionner</option>
+                <option>Moins de 1 000€</option>
+                <option>1 000€ - 3 000€</option>
+                <option>3 000€ - 5 000€</option>
+                <option>5 000€ - 10 000€</option>
+                <option>Plus de 10 000€</option>
+              </select>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}} className="form-grid">
+                <div>
+                  <label style={lS}>Prenom *</label>
+                  <input value={form.prenom} onChange={e=>up("prenom",e.target.value)} style={iS("prenom")} placeholder="Prenom"/>
+                  {errors.prenom && <p style={errStyle}>{errors.prenom}</p>}
+                </div>
+                <div>
+                  <label style={lS}>Nom</label>
+                  <input value={form.nom} onChange={e=>up("nom",e.target.value)} style={iS("nom")} placeholder="Nom"/>
+                </div>
+              </div>
+              <label style={lS}>Email *</label>
+              <input type="email" value={form.email} onChange={e=>up("email",e.target.value)} style={iS("email")} placeholder="exemple@email.fr"/>
+              {errors.email && <p style={errStyle}>{errors.email}</p>}
+              <label style={lS}>Telephone *</label>
+              <input type="tel" value={form.telephone} onChange={e=>up("telephone",e.target.value)} style={iS("telephone")} placeholder="06 12 34 56 78"/>
+              {errors.telephone && <p style={errStyle}>{errors.telephone}</p>}
+              <label style={lS}>Votre projet</label>
+              <textarea value={form.message} onChange={e=>up("message",e.target.value)} rows={4} style={{...iS("message"),resize:"vertical"}} placeholder="Decrivez votre evenement..."/>
+              <button onClick={send} disabled={sending} style={{width:"100%",padding:17,background:sending?"rgba(201,168,76,0.5)":"#C9A84C",border:"none",color:"#080604",fontSize:11,letterSpacing:4,textTransform:"uppercase",fontWeight:500,cursor:"none",fontFamily:"Montserrat,sans-serif",transition:"all .3s"}}>
+                {sending?"Envoi en cours...":"Envoyer ma demande"}
+              </button>
+            </div>
+          </Reveal>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ─── RESERVATION ──────────────────────────────────────────────────────────────
+const MENUS_R = [
+  {id:"classique",label:"Menu Classique",prix:"85",acompte:"25"},
+  {id:"prestige",label:"Menu Prestige",prix:"135",acompte:"40"},
+  {id:"degustation",label:"Menu Degustation",prix:"175",acompte:"55"},
+]
+const TIMES_R = ["12:00","12:30","13:00","19:00","19:30","20:00","20:30","21:00"]
+
+function ReservationPage() {
+  const [step, setStep] = useState(1)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [form, setForm] = useState({
+    date:"",time:"",guests:"2",
+    firstName:"",lastName:"",
+    email:"",phone:"",
+    note:"",menu:"classique",cgv:false
+  })
+  const up = (k,v) => { setForm(f=>({...f,[k]:v})); setFieldErrors(e=>({...e,[k]:""})) }
+  const sm = MENUS_R.find(m=>m.id===form.menu)
+  const ok1 = form.date && form.time
+
+  const validateStep2 = () => {
+    const e = {}
+    if (!validateName(form.firstName)) e.firstName = "Prenom invalide (min. 2 caracteres)"
+    if (!validateEmail(form.email)) e.email = "Adresse email invalide (ex: nom@email.fr)"
+    if (!validatePhone(form.phone)) e.phone = "Numero francais invalide (ex: 06 12 34 56 78 ou +33 6 12 34 56 78)"
+    setFieldErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const iS = (k) => ({
+    width:"100%",padding:"12px 14px",
+    background:"rgba(245,240,232,0.04)",
+    border:`1px solid ${fieldErrors[k]?"rgba(231,76,60,0.6)":"rgba(201,168,76,0.18)"}`,
+    color:"#F5F0E8",fontSize:13,outline:"none",
+    transition:"border-color .3s",
+  })
+  const lS = {fontSize:10,letterSpacing:3,color:"#C9A84C",textTransform:"uppercase",display:"block",marginBottom:8,fontFamily:"Montserrat,sans-serif"}
+  const errStyle = {fontSize:11,color:"#e74c3c",marginTop:4,marginBottom:8,fontFamily:"Montserrat,sans-serif"}
+
+  const pay = async () => {
+    setSending(true); setError("")
+    const {data:res, error:dbErr} = await supabase.from("reservations").insert([{
+      date:form.date, heure:form.time, couverts:parseInt(form.guests),
+      prenom:form.firstName, nom:form.lastName,
+      email:form.email, telephone:form.phone,
+      menu_choisi:sm?.label, acompte:parseFloat(sm?.acompte),
+      note_client:form.note, statut:"en_attente", paiement_statut:"en_attente",
+    }]).select().single()
+    if (dbErr) { setError("Erreur. Veuillez reessayer."); setSending(false); return }
+    const r = await fetch("/api/checkout", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({reservationId:res.id,montant:parseFloat(sm?.acompte),menu:sm?.label,prenom:form.firstName,nom:form.lastName,email:form.email,date:form.date,heure:form.time}),
+    })
+    const {url} = await r.json()
+    if (url) window.location.href = url
+    else { setError("Erreur paiement. Veuillez reessayer."); setSending(false) }
+  }
+
+  return (
+    <section className="page-section">
+      <SectionHeader label="Reservation" title="Votre Table"/>
+      <Reveal>
+        <div className="steps">
+          {[1,2,3].map(s=>(
+            <div key={s} className="step">
+              <div className={`step-num ${step>=s?"step-active":"step-inactive"}`}>{s}</div>
+              <p className={`step-label ${step>=s?"step-label-active":"step-label-inactive"}`}>{s===1?"Date":s===2?"Infos":"Paiement"}</p>
+              {s<3&&<div className={`step-line ${step>s?"step-line-done":"step-line-todo"}`}/>}
+            </div>
+          ))}
+        </div>
+      </Reveal>
+      <Reveal delay={.1}>
+        <div className="form-wrap">
+
+          {step===1&&(
+            <div>
+              <div className="form-grid">
+                <div><label style={lS}>Date</label><input type="date" value={form.date} onChange={e=>up("date",e.target.value)} style={iS("date")}/></div>
+                <div><label style={lS}>Couverts</label>
+                  <select value={form.guests} onChange={e=>up("guests",e.target.value)} style={{...iS("guests"),cursor:"none"}}>
+                    {[1,2,3,4,5,6,7,8].map(n=><option key={n} value={n}>{n} {n===1?"personne":"personnes"}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{marginBottom:22}}>
+                <label style={lS}>Heure</label>
+                <div className="time-grid">
+                  {TIMES_R.map(t=><button key={t} onClick={()=>up("time",t)} className={`time-btn ${form.time===t?"time-active":"time-inactive"}`}>{t}</button>)}
+                </div>
+              </div>
+              <div style={{marginBottom:22}}>
+                <label style={lS}>Menu</label>
+                {MENUS_R.map(m=>(
+                  <div key={m.id} onClick={()=>up("menu",m.id)} className={`menu-option ${form.menu===m.id?"menu-option-active":"menu-option-inactive"}`}>
+                    <div>
+                      <p className="menu-option-name">{m.label}</p>
+                      <p className="menu-option-note">Acompte : {m.acompte}€</p>
+                    </div>
+                    <p className="menu-option-prix">{m.prix}€/pers</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:28}}>
+                <label style={lS}>Note personnelle</label>
+                <textarea value={form.note} onChange={e=>up("note",e.target.value)} rows={3} style={{...iS("note"),resize:"vertical",width:"100%"}} placeholder="Allergies, surprise, occasion speciale, demande particuliere..."/>
+                <p style={{fontSize:10,color:"rgba(245,240,232,0.28)",marginTop:6,fontFamily:"Montserrat,sans-serif"}}>Visible uniquement par notre equipe</p>
+              </div>
+              <button onClick={()=>{if(ok1)setStep(2)}} className={`btn-continue ${ok1?"btn-continue-active":"btn-continue-disabled"}`}>Continuer</button>
+            </div>
+          )}
+
+          {step===2&&(
+            <div>
+              <div className="form-grid">
+                <div>
+                  <label style={lS}>Prenom *</label>
+                  <input value={form.firstName} onChange={e=>up("firstName",e.target.value)} style={iS("firstName")} placeholder="Votre prenom"/>
+                  {fieldErrors.firstName && <p style={errStyle}>{fieldErrors.firstName}</p>}
+                </div>
+                <div>
+                  <label style={lS}>Nom</label>
+                  <input value={form.lastName} onChange={e=>up("lastName",e.target.value)} style={iS("lastName")} placeholder="Votre nom"/>
+                </div>
+              </div>
+              <div>
+                <label style={lS}>Email *</label>
+                <input type="email" value={form.email} onChange={e=>up("email",e.target.value)} style={iS("email")} placeholder="exemple@email.fr"/>
+                {fieldErrors.email && <p style={errStyle}>{fieldErrors.email}</p>}
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={lS}>Telephone *</label>
+                <input type="tel" value={form.phone} onChange={e=>up("phone",e.target.value)} style={iS("phone")} placeholder="06 12 34 56 78"/>
+                <p style={{fontSize:10,color:"rgba(245,240,232,0.3)",marginTop:4,fontFamily:"Montserrat,sans-serif"}}>Format accepte : 06 12 34 56 78 ou +33 6 12 34 56 78</p>
+                {fieldErrors.phone && <p style={errStyle}>{fieldErrors.phone}</p>}
+              </div>
+              <div className="btn-row" style={{marginTop:20}}>
+                <button onClick={()=>setStep(1)} className="btn-back">Retour</button>
+                <button onClick={()=>{ if(validateStep2()) setStep(3) }} className="btn-continue btn-continue-active" style={{flex:1}}>Continuer</button>
+              </div>
+            </div>
+          )}
+
+          {step===3&&(
+            <div>
+              <div className="recap">
+                <p className="recap-title">Recapitulatif</p>
+                {[["Date",form.date],["Heure",form.time],["Couverts",form.guests+" pers."],["Menu",sm?.label],["Nom",form.firstName+" "+form.lastName],["Email",form.email],["Tel",form.phone]].map(([l,v])=>(
+                  <div key={l} className="recap-row"><span className="recap-key">{l}</span><span className="recap-val">{v}</span></div>
+                ))}
+                {form.note&&(
+                  <div style={{marginTop:12,padding:"10px 14px",background:"rgba(201,168,76,0.05)",border:"1px solid rgba(201,168,76,0.12)"}}>
+                    <p style={{fontSize:9,letterSpacing:2,color:"#C9A84C",textTransform:"uppercase",marginBottom:4,fontFamily:"Montserrat,sans-serif"}}>Note personnelle</p>
+                    <p style={{fontSize:12,color:"rgba(245,240,232,0.6)"}}>{form.note}</p>
+                  </div>
+                )}
+                <div className="recap-total">
+                  <span className="recap-total-label">Acompte</span>
+                  <span className="recap-total-val">{sm?.acompte}€</span>
+                </div>
+              </div>
+
+              <div style={{padding:"18px 20px",background:"rgba(139,26,26,0.08)",border:"1px solid rgba(180,50,50,0.35)",marginBottom:16}}>
+                <p style={{fontSize:10,letterSpacing:2,color:"#e07070",textTransform:"uppercase",marginBottom:8,fontFamily:"Montserrat,sans-serif"}}>⚠️ Politique d annulation</p>
+                <p style={{fontSize:12,color:"rgba(245,240,232,0.65)",lineHeight:1.8}}>
+                  L acompte verse est <strong style={{color:"#F5F0E8"}}>definitif et non remboursable</strong> en cas de non-presentation, d annulation moins de 48h avant ou de retard superieur a 30 minutes sans preavis.
+                  <br/>Annulation gratuite si effectuee plus de 48h avant.
+                </p>
+              </div>
+
+              <div onClick={()=>up("cgv",!form.cgv)}
+                style={{display:"flex",alignItems:"flex-start",gap:14,padding:"16px 18px",background:"rgba(201,168,76,0.04)",border:`1px solid ${form.cgv?"rgba(201,168,76,0.5)":"rgba(201,168,76,0.15)"}`,marginBottom:20,cursor:"pointer",transition:"all .3s",userSelect:"none"}}>
+                <div style={{width:20,height:20,border:`1.5px solid ${form.cgv?"#C9A84C":"rgba(201,168,76,0.35)"}`,borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2,background:form.cgv?"#C9A84C":"transparent",transition:"all .3s"}}>
+                  {form.cgv&&<span style={{color:"#080604",fontSize:13,fontWeight:700,lineHeight:1}}>✓</span>}
+                </div>
+                <p style={{fontSize:12,color:"rgba(245,240,232,0.72)",lineHeight:1.8}}>
+                  J ai lu et j accepte les{" "}
+                  <a href="/mentions-legales" target="_blank" style={{color:"#C9A84C",textDecoration:"underline"}} onClick={e=>e.stopPropagation()}>
+                    Conditions Generales de Vente
+                  </a>
+                  {" "}et la politique d annulation. Je comprends que l acompte est non remboursable en cas de non-presentation.
+                </p>
+              </div>
+
+              <div className="confirm-box">
+                <p className="confirm-title">🔒 Paiement securise Stripe</p>
+                <p className="confirm-text">Vous allez etre redirige vers Stripe. Confirmation par email + SMS apres paiement.</p>
+              </div>
+
+              {error&&<p style={{color:"#e74c3c",fontSize:12,marginBottom:14,textAlign:"center",fontFamily:"Montserrat,sans-serif"}}>{error}</p>}
+
+              <div className="btn-row">
+                <button onClick={()=>setStep(2)} className="btn-back">Retour</button>
+                <button onClick={pay} disabled={sending||!form.cgv}
+                  style={{flex:1,padding:17,border:"none",fontSize:11,letterSpacing:4,textTransform:"uppercase",fontWeight:500,fontFamily:"Montserrat,sans-serif",transition:"all .3s",
+                    background:!form.cgv?"rgba(201,168,76,0.15)":sending?"rgba(201,168,76,0.5)":"#C9A84C",
+                    color:!form.cgv?"rgba(245,240,232,0.25)":"#080604",
+                    cursor:!form.cgv||sending?"not-allowed":"pointer"}}>
+                  {sending?"Redirection...":!form.cgv?"Acceptez les CGV pour continuer":"Payer "+sm?.acompte+"€"}
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </Reveal>
+    </section>
+  )
+}
+
+// ─── FOOTER ───────────────────────────────────────────────────────────────────
+function Footer({ setSection }) {
+  return (
+    <footer className="footer">
+      <div className="footer-grid">
+        <div>
+          <div className="footer-brand"><Logo size={34}/><span className="footer-brand-name">Le Goya</span></div>
+          <p className="footer-tagline">Restaurant gastronomique.<br/>Une experience inoubliable.</p>
+        </div>
+        <div>
+          <p className="footer-heading">Navigation</p>
+          {["accueil","menu","evenements","reservation"].map(k=>(
+            <button key={k} className="footer-link" onClick={()=>setSection(k)}>{k.charAt(0).toUpperCase()+k.slice(1)}</button>
+          ))}
+        </div>
+        <div>
+          <p className="footer-heading">Contact</p>
+          <p className="footer-text">contact@legoya.fr<br/>+33 1 XX XX XX XX<br/>Paris, France</p>
+        </div>
+        <div>
+          <p className="footer-heading">Horaires</p>
+          <p className="footer-text">Mar — Sam<br/>12h — 14h<br/>19h — 22h30</p>
+        </div>
+      </div>
+      <div className="footer-bottom">
+        <p className="footer-copy">2025 Le Goya — Tous droits reserves</p>
+        <a href="/mentions-legales" style={{fontSize:11,color:"rgba(245,240,232,0.18)",letterSpacing:2,textDecoration:"none",transition:"color .3s"}}
+          onMouseEnter={e=>e.target.style.color="#C9A84C"}
+          onMouseLeave={e=>e.target.style.color="rgba(245,240,232,0.18)"}>
+          Mentions legales · CGV
+        </a>
+      </div>
+    </footer>
+  )
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+export default function LeGoyaApp() {
+  const [section, setSection] = useState("accueil")
+  const [loaded, setLoaded] = useState(false)
+  const [transitioning, setTransitioning] = useState(false)
+
+  const go = useCallback(s => {
+    setTransitioning(true)
+    setTimeout(() => {
+      setSection(s)
+      window.scrollTo({top:0,behavior:"instant"})
+      setTransitioning(false)
+    }, 350)
+  }, [])
+
+  const pages = {
+    accueil: (<><Hero setSection={go}/><Carousel/><Avis/></>),
+    menu: <MenuPage/>,
+    evenements: <EventsPage/>,
+    reservation: <ReservationPage/>,
+  }
+
+  return (
+    <div className="goya-wrap">
+      {!loaded && <LoadingScreen onDone={() => setLoaded(true)}/>}
+      <Cursor/>
+      <GoldParticles/>
+      <Nav section={section} setSection={go}/>
+      <div className={`page-transition page-content${transitioning?" out":" in"}`}>
+        {pages[section]||pages.accueil}
+        <Footer setSection={go}/>
+      </div>
+    </div>
+  )
+}
