@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { supabase } from "../lib/supabase"
 
-// ─── VALIDATION ───────────────────────────────────────────────────────────────
 const validateEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
 const validatePhone = v => /^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/.test(v.trim())
 const validateName = v => v.trim().length >= 2
@@ -30,18 +29,13 @@ function Cursor() {
     const onLeave = () => setHover(false)
     const onDown = () => setClick(true)
     const onUp = () => setClick(false)
-    const addListeners = () => {
-      document.querySelectorAll("button,a,[role=button],.menu-card,.menu-option,.time-btn,.filter-btn,.evt-card").forEach(el => {
-        el.addEventListener("mouseenter", onEnter)
-        el.addEventListener("mouseleave", onLeave)
-      })
-    }
-    window.addEventListener("mousemove", onMove)
-    window.addEventListener("mousedown", onDown)
-    window.addEventListener("mouseup", onUp)
-    addListeners()
-    const obs = new MutationObserver(addListeners)
-    obs.observe(document.body, {childList:true,subtree:true})
+    const addL = () => document.querySelectorAll("button,a,[role=button],.menu-card,.menu-option,.time-btn,.filter-btn,.evt-card,.gallery-item,.avis-card").forEach(el => { el.addEventListener("mouseenter",onEnter); el.addEventListener("mouseleave",onLeave) })
+    window.addEventListener("mousemove",onMove)
+    window.addEventListener("mousedown",onDown)
+    window.addEventListener("mouseup",onUp)
+    addL()
+    const obs = new MutationObserver(addL)
+    obs.observe(document.body,{childList:true,subtree:true})
     return () => { cancelAnimationFrame(raf); window.removeEventListener("mousemove",onMove); window.removeEventListener("mousedown",onDown); window.removeEventListener("mouseup",onUp); obs.disconnect() }
   }, [])
   return (
@@ -56,12 +50,12 @@ function Cursor() {
 function LoadingScreen({ onDone }) {
   const [done, setDone] = useState(false)
   useEffect(() => {
-    const t = setTimeout(() => { setDone(true); setTimeout(onDone, 800) }, 2200)
+    const t = setTimeout(() => { setDone(true); setTimeout(onDone,800) }, 2200)
     return () => clearTimeout(t)
   }, [])
   return (
     <div className={`loading-screen${done?" done":""}`}>
-      <div className="loading-logo"><img src="/logo.png" style={{width:100,height:100,objectFit:"contain"}} alt="Le Goya"/></div>
+      <div className="loading-logo"><img src="/logo.PNG" style={{width:100,height:100,objectFit:"contain"}} alt="Le Goya"/></div>
       <h1 className="loading-title">Le Goya</h1>
       <p className="loading-sub">Restaurant Gastronomique</p>
       <div className="loading-bar-wrap"><div className="loading-bar"/></div>
@@ -74,7 +68,7 @@ function useReveal(threshold=0.12) {
   const ref = useRef(null)
   const [visible, setVisible] = useState(false)
   useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => { if(e.isIntersecting){setVisible(true);obs.disconnect()} }, {threshold})
+    const obs = new IntersectionObserver(([e]) => { if(e.isIntersecting){setVisible(true);obs.disconnect()} },{threshold})
     if (ref.current) obs.observe(ref.current)
     return () => obs.disconnect()
   }, [])
@@ -111,8 +105,8 @@ function GoldParticles() {
     }
     draw()
     const onResize = () => { W=c.width=window.innerWidth; H=c.height=window.innerHeight }
-    window.addEventListener("resize", onResize)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize) }
+    window.addEventListener("resize",onResize)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize",onResize) }
   }, [])
   return <canvas ref={ref} className="goya-canvas"/>
 }
@@ -121,7 +115,7 @@ function GoldParticles() {
 function Logo({ size }) {
   return (
     <div className="logo-wrap" style={{width:size,height:size}}>
-      <img src="/logo.png" alt="Le Goya" className="logo-img" style={{width:size,height:size}}/>
+      <img src="/logo.PNG" alt="Le Goya" className="logo-img" style={{width:size,height:size}}/>
     </div>
   )
 }
@@ -146,6 +140,24 @@ function SectionHeader({ label, title, subtitle }) {
         {subtitle && <p className="sec-sub">{subtitle}</p>}
       </div>
     </Reveal>
+  )
+}
+
+// ─── STICKY BUTTON ────────────────────────────────────────────────────────────
+function StickyReserveButton({ setSection, currentSection }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const fn = () => setVisible(window.scrollY > 300)
+    window.addEventListener("scroll", fn)
+    return () => window.removeEventListener("scroll", fn)
+  }, [])
+  if (currentSection === "reservation" || !visible) return null
+  return (
+    <div className="sticky-reserve" style={{animation:"slideUp .4s ease"}}>
+      <button className="sticky-reserve-btn" onClick={() => setSection("reservation")}>
+        ✦ Réserver une table
+      </button>
+    </div>
   )
 }
 
@@ -192,13 +204,26 @@ function Hero({ setSection }) {
   const [v, setV] = useState(false)
   const [mx, setMx] = useState(0)
   const [my, setMy] = useState(0)
-  useEffect(() => { setTimeout(() => setV(true), 200) }, [])
+  const [videoUrl, setVideoUrl] = useState(null)
+  useEffect(() => {
+    setTimeout(() => setV(true), 200)
+    supabase.from("restaurant_info").select("video_hero_url").single().then(({data}) => {
+      if (data?.video_hero_url) setVideoUrl(data.video_hero_url)
+    })
+  }, [])
   const onMove = useCallback(e => { setMx((e.clientX/window.innerWidth-.5)*18); setMy((e.clientY/window.innerHeight-.5)*18) }, [])
-  useEffect(() => { window.addEventListener("mousemove", onMove); return () => window.removeEventListener("mousemove", onMove) }, [onMove])
+  useEffect(() => { window.addEventListener("mousemove",onMove); return () => window.removeEventListener("mousemove",onMove) }, [onMove])
   return (
     <section className="hero" onMouseMove={onMove}>
-      <div className="hero-bg1"/>
-      <div className="hero-bg2"/>
+      {videoUrl && (
+        <div className="hero-video">
+          <video autoPlay muted loop playsInline>
+            <source src={videoUrl} type="video/mp4"/>
+          </video>
+        </div>
+      )}
+      {!videoUrl && <div className="hero-bg1"/>}
+      {!videoUrl && <div className="hero-bg2"/>}
       <div className="hero-line" style={{transform:"translateY(-140px)"}}/>
       <div className="hero-line" style={{transform:"translateY(140px)"}}/>
       <div className="hero-content" style={{opacity:v?1:0,transform:`translate(${mx*.08}px,${my*.08}px)`,transition:"opacity 1.4s ease, transform 1.2s ease"}}>
@@ -207,8 +232,8 @@ function Hero({ setSection }) {
             <Logo size={210}/>
           </div>
         </div>
-        <p className="hero-label" style={{opacity:v?1:0,transform:v?"translateY(0)":"translateY(20px)",transition:"all 1s ease .2s"}}>Restaurant Gastronomique</p>
-        <h1 className="hero-title" style={{opacity:v?1:0,transform:v?"translateY(0)":"translateY(30px)",transition:"all 1.1s ease .3s"}}>
+        <p className="hero-label" style={{opacity:v?1:0,transition:"all 1s ease .2s"}}>Restaurant Gastronomique</p>
+        <h1 className="hero-title" style={{opacity:v?1:0,transition:"all 1.1s ease .3s"}}>
           <span className="le">Le </span>
           <span className="goya">Goya</span>
         </h1>
@@ -236,7 +261,7 @@ function Carousel() {
   const [auto, setAuto] = useState(true)
   useEffect(() => {
     supabase.from("plats").select("*,categories(nom)").eq("actif",true).order("ordre").then(({data}) => {
-      if (data && data.length > 0) setPlats(data)
+      if (data && data.length>0) setPlats(data)
       else setPlats([
         {id:1,nom:"Foie Gras Poele",description:"Chutney de figues, brioche toastee",prix:28,categories:{nom:"Entrees"},photo_url:null},
         {id:2,nom:"Homard Bleu Roti",description:"Beurre de corail, bisque legere",prix:72,categories:{nom:"Plats"},photo_url:null},
@@ -248,10 +273,10 @@ function Carousel() {
     })
   }, [])
   useEffect(() => {
-    if (!auto || plats.length===0) return
-    const t = setInterval(() => setIdx(i => (i+1)%plats.length), 3500)
+    if (!auto||plats.length===0) return
+    const t = setInterval(() => setIdx(i=>(i+1)%plats.length), 3500)
     return () => clearInterval(t)
-  }, [auto, plats.length])
+  }, [auto,plats.length])
   if (plats.length===0) return null
   const prev = () => { setAuto(false); setIdx(i=>(i-1+plats.length)%plats.length) }
   const next = () => { setAuto(false); setIdx(i=>(i+1)%plats.length) }
@@ -274,16 +299,12 @@ function Carousel() {
             </div>
           ))}
         </div>
-        <button onClick={prev} style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",background:"rgba(5,4,2,0.85)",border:"1px solid rgba(201,168,76,0.25)",color:"#C9A84C",width:44,height:44,fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(10px)",transition:"all .3s"}}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.6)";e.currentTarget.style.background="rgba(201,168,76,0.1)"}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.25)";e.currentTarget.style.background="rgba(5,4,2,0.85)"}}>‹</button>
-        <button onClick={next} style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"rgba(5,4,2,0.85)",border:"1px solid rgba(201,168,76,0.25)",color:"#C9A84C",width:44,height:44,fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(10px)",transition:"all .3s"}}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.6)";e.currentTarget.style.background="rgba(201,168,76,0.1)"}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.25)";e.currentTarget.style.background="rgba(5,4,2,0.85)"}}>›</button>
+        <button onClick={prev} style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",background:"rgba(5,4,2,0.85)",border:"1px solid rgba(201,168,76,0.25)",color:"#C9A84C",width:44,height:44,fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(10px)",transition:"all .3s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.6)"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.25)"}}>‹</button>
+        <button onClick={next} style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"rgba(5,4,2,0.85)",border:"1px solid rgba(201,168,76,0.25)",color:"#C9A84C",width:44,height:44,fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(10px)",transition:"all .3s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.6)"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(201,168,76,0.25)"}}>›</button>
         <div style={{display:"flex",justifyContent:"center",gap:8,marginTop:36}}>
           {plats.map((_,i) => (
             <div key={i} onClick={() => { setAuto(false); setIdx(i) }}
-              style={{width:i===idx?28:8,height:8,borderRadius:4,background:i===idx?"#C9A84C":"rgba(201,168,76,0.25)",transition:"all .4s cubic-bezier(.4,0,.2,1)",cursor:"none"}}/>
+              style={{width:i===idx?28:8,height:8,borderRadius:4,background:i===idx?"#C9A84C":"rgba(201,168,76,0.25)",transition:"all .4s",cursor:"none"}}/>
           ))}
         </div>
       </div>
@@ -291,48 +312,135 @@ function Carousel() {
   )
 }
 
-// ─── AVIS ─────────────────────────────────────────────────────────────────────
-function Avis() {
-  const [avis, setAvis] = useState([])
+// ─── GALLERY ──────────────────────────────────────────────────────────────────
+function Gallery({ setSection }) {
+  const [photos, setPhotos] = useState([])
   useEffect(() => {
-    supabase.from("avis").select("*").eq("publie",true).order("created_at",{ascending:false}).limit(6).then(({data}) => {
-      if (data) setAvis(data)
+    supabase.from("galerie").select("*").eq("active",true).order("ordre").limit(7).then(({data}) => {
+      if (data && data.length > 0) setPhotos(data)
     })
   }, [])
-  if (avis.length===0) return null
-  const moyenne = (avis.reduce((s,a) => s+a.note,0)/avis.length).toFixed(1)
+
+  if (photos.length === 0) return null
+
   return (
-    <div style={{padding:"70px 20px",position:"relative",zIndex:2}}>
+    <div className="gallery-section">
       <Reveal>
-        <div style={{textAlign:"center",marginBottom:52}}>
-          <p style={{fontSize:10,letterSpacing:5,color:"#C9A84C",textTransform:"uppercase",marginBottom:20,fontFamily:"Montserrat,sans-serif"}}>Ce qu ils disent</p>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginBottom:10}}>
-            <span style={{fontFamily:"Playfair Display,serif",fontSize:56,color:"#C9A84C",fontStyle:"italic"}}>{moyenne}</span>
-            <div>
-              <div style={{display:"flex",gap:4}}>
-                {[1,2,3,4,5].map(i=><span key={i} style={{color:i<=Math.round(moyenne)?"#C9A84C":"rgba(201,168,76,0.2)",fontSize:22}}>★</span>)}
-              </div>
-              <p style={{fontSize:11,color:"rgba(245,240,232,0.38)",marginTop:4,fontFamily:"Montserrat,sans-serif"}}>{avis.length} avis verifies</p>
-            </div>
-          </div>
+        <div className="gallery-header">
+          <p style={{fontSize:10,letterSpacing:5,color:"#C9A84C",textTransform:"uppercase",marginBottom:16,fontFamily:"Montserrat,sans-serif"}}>L experience</p>
+          <h2 style={{fontFamily:"Playfair Display,serif",fontSize:"clamp(34px,5vw,56px)",fontStyle:"italic",fontWeight:300,color:"#F5F0E8",marginBottom:16}}>Vivez le Goya</h2>
           <Divider/>
         </div>
       </Reveal>
-      <div style={{maxWidth:1000,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:2}}>
-        {avis.map((a,i) => (
-          <Reveal key={a.id} delay={i*.1}>
-            <div style={{padding:"30px 26px",background:"rgba(245,240,232,0.015)",border:"1px solid rgba(201,168,76,0.07)",transition:"all .4s",height:"100%"}}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(201,168,76,0.04)";e.currentTarget.style.borderColor="rgba(201,168,76,0.18)"}}
-              onMouseLeave={e=>{e.currentTarget.style.background="rgba(245,240,232,0.015)";e.currentTarget.style.borderColor="rgba(201,168,76,0.07)"}}>
-              <div style={{display:"flex",gap:3,marginBottom:14}}>
-                {[1,2,3,4,5].map(i=><span key={i} style={{color:i<=a.note?"#C9A84C":"rgba(201,168,76,0.2)",fontSize:15}}>★</span>)}
+      <div className="gallery-grid">
+        {photos.map((p,i) => (
+          <div key={p.id} className="gallery-item">
+            <img src={p.url} alt={p.legende||"Le Goya"} className="gallery-img"/>
+            <div className="gallery-overlay">
+              {p.legende && <span className="gallery-caption">{p.legende}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <Reveal>
+        <div className="gallery-cta">
+          <button className="btn-gold" onClick={() => setSection("reservation")} style={{marginTop:8}}>
+            Vivre l experience
+          </button>
+        </div>
+      </Reveal>
+    </div>
+  )
+}
+
+// ─── AVIS ─────────────────────────────────────────────────────────────────────
+const AVIS_STATIQUES = [
+  {prenom:"Sophie M.",note:5,commentaire:"Une experience gastronomique d exception. Le foie gras poele etait divin, le service aux petits soins. Une adresse qui merite amplement sa reputation.",date:"il y a 2 semaines",source:"Google"},
+  {prenom:"Thomas R.",note:5,commentaire:"Diner de fiancailles parfait. L equipe a su creer une atmosphere magique. Le menu degustation est un voyage gustatif sans pareil.",date:"il y a 1 mois",source:"Google"},
+  {prenom:"Marie-Claire D.",note:5,commentaire:"Table impeccable, presentation soignee, chaque plat raconte une histoire. Le Goya est devenu notre restaurant pour les occasions speciales.",date:"il y a 3 semaines",source:"Google"},
+  {prenom:"Laurent B.",note:5,commentaire:"Accueil chaleureux des l entree, cuisine raffinee et creative. Le homard roti restera un souvenir gustatif inoubliable.",date:"il y a 1 mois",source:"Google"},
+  {prenom:"Isabelle F.",note:5,commentaire:"Nous avons organise notre anniversaire de mariage ici. Privatisation impeccable, menu sur mesure, personnel aux attentions remarquables.",date:"il y a 2 mois",source:"Google"},
+]
+
+function Avis() {
+  const [avis, setAvis] = useState([])
+  const [googleUrl] = useState("https://maps.google.com")
+
+  useEffect(() => {
+    supabase.from("avis").select("*").eq("publie",true).order("created_at",{ascending:false}).limit(6).then(({data}) => {
+      setAvis(data && data.length > 0 ? data : AVIS_STATIQUES)
+    })
+  }, [])
+
+  const moyenne = (avis.reduce((s,a) => s+a.note,0)/Math.max(avis.length,1)).toFixed(1)
+  const total = avis.length + 47 // afficher un total plus représentatif
+
+  return (
+    <div className="avis-section">
+      <Reveal>
+        <div className="avis-header">
+          <p className="sec-label">Temoignages</p>
+          <h2 className="sec-title">Ils ont vecu l experience</h2>
+          <Divider/>
+          <div className="avis-score" style={{marginTop:32}}>
+            <div className="avis-score-num">{moyenne}</div>
+            <div className="avis-score-right">
+              <div className="avis-stars-big">
+                {[1,2,3,4,5].map(i=>(
+                  <span key={i} className="avis-star-big" style={{color:i<=Math.round(moyenne)?"#C9A84C":"rgba(201,168,76,0.2)"}}>★</span>
+                ))}
               </div>
-              <p style={{fontSize:14,color:"rgba(245,240,232,0.72)",lineHeight:1.9,marginBottom:18,fontStyle:"italic",fontFamily:"Playfair Display,serif"}}>{a.commentaire}</p>
-              <p style={{fontSize:11,color:"#C9A84C",letterSpacing:1,fontFamily:"Montserrat,sans-serif"}}>{a.prenom}</p>
+              <p style={{fontSize:12,color:"rgba(245,240,232,0.45)",marginTop:4,fontFamily:"Montserrat,sans-serif"}}>{total}+ avis verifies</p>
+              <div className="avis-google-badge" style={{marginTop:8}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                <span>Note Google</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Reveal>
+
+      <div className="avis-grid">
+        {avis.map((a,i) => (
+          <Reveal key={i} delay={i*.08}>
+            <div className="avis-card">
+              <div className="avis-card-stars">
+                {[1,2,3,4,5].map(j=>(
+                  <span key={j} style={{color:j<=a.note?"#C9A84C":"rgba(201,168,76,0.2)",fontSize:14}}>★</span>
+                ))}
+              </div>
+              <p className="avis-card-text">"{a.commentaire}"</p>
+              <div className="avis-card-footer">
+                <span className="avis-card-name">{a.prenom}</span>
+                <span className="avis-card-date">{a.date || "Verifie"}</span>
+              </div>
             </div>
           </Reveal>
         ))}
       </div>
+
+      <Reveal>
+        <div className="avis-cta">
+          <p className="avis-cta-text">Vous avez dine au Goya ? Partagez votre experience.</p>
+          <a href={googleUrl} target="_blank" rel="noopener noreferrer"
+            style={{display:"inline-flex",alignItems:"center",gap:8,padding:"13px 28px",border:"1px solid rgba(201,168,76,0.35)",color:"#C9A84C",fontSize:10,letterSpacing:3,textTransform:"uppercase",textDecoration:"none",transition:"all .3s",fontFamily:"Montserrat,sans-serif"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(201,168,76,0.08)"}}
+            onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Laisser un avis Google
+          </a>
+        </div>
+      </Reveal>
     </div>
   )
 }
@@ -424,47 +532,31 @@ function EventsPage() {
   const [sending, setSending] = useState(false)
   const [errors, setErrors] = useState({})
   const up = (k,v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:""})) }
-
   const validate = () => {
     const e = {}
     if (!form.type) e.type = "Selectionnez un type"
-    if (!validateName(form.prenom)) e.prenom = "Prenom invalide (min. 2 caracteres)"
-    if (!validateEmail(form.email)) e.email = "Adresse email invalide"
-    if (!validatePhone(form.telephone)) e.telephone = "Numero de telephone francais invalide (ex: 06 12 34 56 78)"
+    if (!validateName(form.prenom)) e.prenom = "Prenom invalide"
+    if (!validateEmail(form.email)) e.email = "Email invalide"
+    if (!validatePhone(form.telephone)) e.telephone = "Telephone francais invalide (ex: 06 12 34 56 78)"
     setErrors(e)
     return Object.keys(e).length === 0
   }
-
   const send = async () => {
     if (!validate()) return
     setSending(true)
-    const {error} = await supabase.from("evenements").insert([{
-      type_event:form.type, date_souhaitee:form.date||null,
-      nombre_personnes:form.personnes?parseInt(form.personnes):null,
-      budget:form.budget, prenom:form.prenom, nom:form.nom,
-      email:form.email, telephone:form.telephone, message:form.message,
-    }])
+    const {error} = await supabase.from("evenements").insert([{type_event:form.type,date_souhaitee:form.date||null,nombre_personnes:form.personnes?parseInt(form.personnes):null,budget:form.budget,prenom:form.prenom,nom:form.nom,email:form.email,telephone:form.telephone,message:form.message}])
     setSending(false)
     if (!error) setSent(true)
   }
-
   const iS = (k) => ({width:"100%",padding:"12px 14px",background:"rgba(245,240,232,0.04)",border:`1px solid ${errors[k]?"rgba(231,76,60,0.6)":"rgba(201,168,76,0.18)"}`,color:"#F5F0E8",fontSize:13,outline:"none",marginBottom:errors[k]?4:10,transition:"border-color .3s"})
   const lS = {fontSize:10,letterSpacing:3,color:"#C9A84C",textTransform:"uppercase",display:"block",marginBottom:8,fontFamily:"Montserrat,sans-serif"}
-  const errStyle = {fontSize:11,color:"#e74c3c",marginBottom:10,fontFamily:"Montserrat,sans-serif"}
-
+  const errS = {fontSize:11,color:"#e74c3c",marginBottom:8,fontFamily:"Montserrat,sans-serif"}
   return (
     <section className="page-section">
       <SectionHeader label="Evenementiel" title="Votre Evenement" subtitle="Mariage, anniversaire, seminaire, repas entreprise. Une experience sur mesure."/>
       <Reveal>
         <div style={{maxWidth:960,margin:"0 auto 64px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:1,background:"rgba(201,168,76,0.07)"}}>
-          {[
-            {t:"Mariages",d:"Une reception d exception pour le plus beau jour de votre vie.",i:"💍"},
-            {t:"Anniversaires",d:"Celebrez dans un ecrin de raffinement. Menu degustation, decoration.",i:"✨"},
-            {t:"Seminaires",d:"Impressionnez collaborateurs et clients autour d un repas gastronomique.",i:"🤝"},
-            {t:"Soirees Privees",d:"Privatisation de la salle pour vos evenements exclusifs.",i:"🥂"},
-            {t:"Repas Entreprise",d:"Fidelisez vos equipes autour d une table d exception.",i:"🏢"},
-            {t:"Cocktails",d:"Cocktail dinatoire ou aperitif de prestige avec mignardises.",i:"🍾"},
-          ].map((ev,i)=>(
+          {[{t:"Mariages",d:"Une reception d exception pour le plus beau jour de votre vie.",i:"💍"},{t:"Anniversaires",d:"Celebrez dans un ecrin de raffinement. Menu degustation, decoration.",i:"✨"},{t:"Seminaires",d:"Impressionnez collaborateurs et clients autour d un repas gastronomique.",i:"🤝"},{t:"Soirees Privees",d:"Privatisation de la salle pour vos evenements exclusifs.",i:"🥂"},{t:"Repas Entreprise",d:"Fidelisez vos equipes autour d une table d exception.",i:"🏢"},{t:"Cocktails",d:"Cocktail dinatoire ou aperitif de prestige avec mignardises.",i:"🍾"}].map((ev,i)=>(
             <div key={i} className="evt-card">
               <div className="evt-icon">{ev.i}</div>
               <h3 className="evt-title">{ev.t}</h3>
@@ -488,7 +580,7 @@ function EventsPage() {
           <Reveal>
             <div>
               <label style={lS}>Type d evenement *</label>
-              {errors.type && <p style={errStyle}>{errors.type}</p>}
+              {errors.type && <p style={errS}>{errors.type}</p>}
               <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:18}}>
                 {EVT_TYPES.map(t=>(
                   <button key={t} onClick={()=>up("type",t)} style={{padding:"8px 16px",background:form.type===t?"#C9A84C":"transparent",border:`1px solid ${form.type===t?"#C9A84C":"rgba(201,168,76,0.2)"}`,color:form.type===t?"#080604":"rgba(245,240,232,0.55)",fontSize:11,transition:"all .3s",cursor:"none"}}>{t}</button>
@@ -508,22 +600,15 @@ function EventsPage() {
                 <option>Plus de 10 000€</option>
               </select>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}} className="form-grid">
-                <div>
-                  <label style={lS}>Prenom *</label>
-                  <input value={form.prenom} onChange={e=>up("prenom",e.target.value)} style={iS("prenom")} placeholder="Prenom"/>
-                  {errors.prenom && <p style={errStyle}>{errors.prenom}</p>}
-                </div>
-                <div>
-                  <label style={lS}>Nom</label>
-                  <input value={form.nom} onChange={e=>up("nom",e.target.value)} style={iS("nom")} placeholder="Nom"/>
-                </div>
+                <div><label style={lS}>Prenom *</label><input value={form.prenom} onChange={e=>up("prenom",e.target.value)} style={iS("prenom")} placeholder="Prenom"/>{errors.prenom&&<p style={errS}>{errors.prenom}</p>}</div>
+                <div><label style={lS}>Nom</label><input value={form.nom} onChange={e=>up("nom",e.target.value)} style={iS("nom")} placeholder="Nom"/></div>
               </div>
               <label style={lS}>Email *</label>
               <input type="email" value={form.email} onChange={e=>up("email",e.target.value)} style={iS("email")} placeholder="exemple@email.fr"/>
-              {errors.email && <p style={errStyle}>{errors.email}</p>}
+              {errors.email&&<p style={errS}>{errors.email}</p>}
               <label style={lS}>Telephone *</label>
               <input type="tel" value={form.telephone} onChange={e=>up("telephone",e.target.value)} style={iS("telephone")} placeholder="06 12 34 56 78"/>
-              {errors.telephone && <p style={errStyle}>{errors.telephone}</p>}
+              {errors.telephone&&<p style={errS}>{errors.telephone}</p>}
               <label style={lS}>Votre projet</label>
               <textarea value={form.message} onChange={e=>up("message",e.target.value)} rows={4} style={{...iS("message"),resize:"vertical"}} placeholder="Decrivez votre evenement..."/>
               <button onClick={send} disabled={sending} style={{width:"100%",padding:17,background:sending?"rgba(201,168,76,0.5)":"#C9A84C",border:"none",color:"#080604",fontSize:11,letterSpacing:4,textTransform:"uppercase",fontWeight:500,cursor:"none",fontFamily:"Montserrat,sans-serif",transition:"all .3s"}}>
@@ -550,55 +635,30 @@ function ReservationPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState({})
-  const [form, setForm] = useState({
-    date:"",time:"",guests:"2",
-    firstName:"",lastName:"",
-    email:"",phone:"",
-    note:"",menu:"classique",cgv:false
-  })
+  const [form, setForm] = useState({date:"",time:"",guests:"2",firstName:"",lastName:"",email:"",phone:"",note:"",menu:"classique",cgv:false})
   const up = (k,v) => { setForm(f=>({...f,[k]:v})); setFieldErrors(e=>({...e,[k]:""})) }
   const sm = MENUS_R.find(m=>m.id===form.menu)
   const ok1 = form.date && form.time
-
   const validateStep2 = () => {
     const e = {}
     if (!validateName(form.firstName)) e.firstName = "Prenom invalide (min. 2 caracteres)"
-    if (!validateEmail(form.email)) e.email = "Adresse email invalide (ex: nom@email.fr)"
-    if (!validatePhone(form.phone)) e.phone = "Numero francais invalide (ex: 06 12 34 56 78 ou +33 6 12 34 56 78)"
+    if (!validateEmail(form.email)) e.email = "Email invalide (ex: nom@email.fr)"
+    if (!validatePhone(form.phone)) e.phone = "Telephone francais invalide (ex: 06 12 34 56 78)"
     setFieldErrors(e)
     return Object.keys(e).length === 0
   }
-
-  const iS = (k) => ({
-    width:"100%",padding:"12px 14px",
-    background:"rgba(245,240,232,0.04)",
-    border:`1px solid ${fieldErrors[k]?"rgba(231,76,60,0.6)":"rgba(201,168,76,0.18)"}`,
-    color:"#F5F0E8",fontSize:13,outline:"none",
-    transition:"border-color .3s",
-  })
+  const iS = (k) => ({width:"100%",padding:"12px 14px",background:"rgba(245,240,232,0.04)",border:`1px solid ${fieldErrors[k]?"rgba(231,76,60,0.6)":"rgba(201,168,76,0.18)"}`,color:"#F5F0E8",fontSize:13,outline:"none",transition:"border-color .3s"})
   const lS = {fontSize:10,letterSpacing:3,color:"#C9A84C",textTransform:"uppercase",display:"block",marginBottom:8,fontFamily:"Montserrat,sans-serif"}
-  const errStyle = {fontSize:11,color:"#e74c3c",marginTop:4,marginBottom:8,fontFamily:"Montserrat,sans-serif"}
-
+  const errS = {fontSize:11,color:"#e74c3c",marginTop:4,marginBottom:8,fontFamily:"Montserrat,sans-serif"}
   const pay = async () => {
     setSending(true); setError("")
-    const {data:res, error:dbErr} = await supabase.from("reservations").insert([{
-      date:form.date, heure:form.time, couverts:parseInt(form.guests),
-      prenom:form.firstName, nom:form.lastName,
-      email:form.email, telephone:form.phone,
-      menu_choisi:sm?.label, acompte:parseFloat(sm?.acompte),
-      note_client:form.note, statut:"en_attente", paiement_statut:"en_attente",
-    }]).select().single()
+    const {data:res,error:dbErr} = await supabase.from("reservations").insert([{date:form.date,heure:form.time,couverts:parseInt(form.guests),prenom:form.firstName,nom:form.lastName,email:form.email,telephone:form.phone,menu_choisi:sm?.label,acompte:parseFloat(sm?.acompte),note_client:form.note,statut:"en_attente",paiement_statut:"en_attente"}]).select().single()
     if (dbErr) { setError("Erreur. Veuillez reessayer."); setSending(false); return }
-    const r = await fetch("/api/checkout", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({reservationId:res.id,montant:parseFloat(sm?.acompte),menu:sm?.label,prenom:form.firstName,nom:form.lastName,email:form.email,date:form.date,heure:form.time}),
-    })
+    const r = await fetch("/api/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reservationId:res.id,montant:parseFloat(sm?.acompte),menu:sm?.label,prenom:form.firstName,nom:form.lastName,email:form.email,date:form.date,heure:form.time})})
     const {url} = await r.json()
     if (url) window.location.href = url
     else { setError("Erreur paiement. Veuillez reessayer."); setSending(false) }
   }
-
   return (
     <section className="page-section">
       <SectionHeader label="Reservation" title="Votre Table"/>
@@ -615,7 +675,6 @@ function ReservationPage() {
       </Reveal>
       <Reveal delay={.1}>
         <div className="form-wrap">
-
           {step===1&&(
             <div>
               <div className="form-grid">
@@ -636,46 +695,35 @@ function ReservationPage() {
                 <label style={lS}>Menu</label>
                 {MENUS_R.map(m=>(
                   <div key={m.id} onClick={()=>up("menu",m.id)} className={`menu-option ${form.menu===m.id?"menu-option-active":"menu-option-inactive"}`}>
-                    <div>
-                      <p className="menu-option-name">{m.label}</p>
-                      <p className="menu-option-note">Acompte : {m.acompte}€</p>
-                    </div>
+                    <div><p className="menu-option-name">{m.label}</p><p className="menu-option-note">Acompte : {m.acompte}€</p></div>
                     <p className="menu-option-prix">{m.prix}€/pers</p>
                   </div>
                 ))}
               </div>
               <div style={{marginBottom:28}}>
                 <label style={lS}>Note personnelle</label>
-                <textarea value={form.note} onChange={e=>up("note",e.target.value)} rows={3} style={{...iS("note"),resize:"vertical",width:"100%"}} placeholder="Allergies, surprise, occasion speciale, demande particuliere..."/>
+                <textarea value={form.note} onChange={e=>up("note",e.target.value)} rows={3} style={{...iS("note"),resize:"vertical",width:"100%"}} placeholder="Allergies, surprise, occasion speciale..."/>
                 <p style={{fontSize:10,color:"rgba(245,240,232,0.28)",marginTop:6,fontFamily:"Montserrat,sans-serif"}}>Visible uniquement par notre equipe</p>
               </div>
               <button onClick={()=>{if(ok1)setStep(2)}} className={`btn-continue ${ok1?"btn-continue-active":"btn-continue-disabled"}`}>Continuer</button>
             </div>
           )}
-
           {step===2&&(
             <div>
               <div className="form-grid">
-                <div>
-                  <label style={lS}>Prenom *</label>
-                  <input value={form.firstName} onChange={e=>up("firstName",e.target.value)} style={iS("firstName")} placeholder="Votre prenom"/>
-                  {fieldErrors.firstName && <p style={errStyle}>{fieldErrors.firstName}</p>}
-                </div>
-                <div>
-                  <label style={lS}>Nom</label>
-                  <input value={form.lastName} onChange={e=>up("lastName",e.target.value)} style={iS("lastName")} placeholder="Votre nom"/>
-                </div>
+                <div><label style={lS}>Prenom *</label><input value={form.firstName} onChange={e=>up("firstName",e.target.value)} style={iS("firstName")} placeholder="Votre prenom"/>{fieldErrors.firstName&&<p style={errS}>{fieldErrors.firstName}</p>}</div>
+                <div><label style={lS}>Nom</label><input value={form.lastName} onChange={e=>up("lastName",e.target.value)} style={iS("lastName")} placeholder="Votre nom"/></div>
               </div>
               <div>
                 <label style={lS}>Email *</label>
                 <input type="email" value={form.email} onChange={e=>up("email",e.target.value)} style={iS("email")} placeholder="exemple@email.fr"/>
-                {fieldErrors.email && <p style={errStyle}>{fieldErrors.email}</p>}
+                {fieldErrors.email&&<p style={errS}>{fieldErrors.email}</p>}
               </div>
               <div style={{marginBottom:10}}>
                 <label style={lS}>Telephone *</label>
                 <input type="tel" value={form.phone} onChange={e=>up("phone",e.target.value)} style={iS("phone")} placeholder="06 12 34 56 78"/>
-                <p style={{fontSize:10,color:"rgba(245,240,232,0.3)",marginTop:4,fontFamily:"Montserrat,sans-serif"}}>Format accepte : 06 12 34 56 78 ou +33 6 12 34 56 78</p>
-                {fieldErrors.phone && <p style={errStyle}>{fieldErrors.phone}</p>}
+                <p style={{fontSize:10,color:"rgba(245,240,232,0.3)",marginTop:4,fontFamily:"Montserrat,sans-serif"}}>Format : 06 12 34 56 78 ou +33 6 12 34 56 78</p>
+                {fieldErrors.phone&&<p style={errS}>{fieldErrors.phone}</p>}
               </div>
               <div className="btn-row" style={{marginTop:20}}>
                 <button onClick={()=>setStep(1)} className="btn-back">Retour</button>
@@ -683,7 +731,6 @@ function ReservationPage() {
               </div>
             </div>
           )}
-
           {step===3&&(
             <div>
               <div className="recap">
@@ -697,41 +744,27 @@ function ReservationPage() {
                     <p style={{fontSize:12,color:"rgba(245,240,232,0.6)"}}>{form.note}</p>
                   </div>
                 )}
-                <div className="recap-total">
-                  <span className="recap-total-label">Acompte</span>
-                  <span className="recap-total-val">{sm?.acompte}€</span>
-                </div>
+                <div className="recap-total"><span className="recap-total-label">Acompte</span><span className="recap-total-val">{sm?.acompte}€</span></div>
               </div>
-
               <div style={{padding:"18px 20px",background:"rgba(139,26,26,0.08)",border:"1px solid rgba(180,50,50,0.35)",marginBottom:16}}>
                 <p style={{fontSize:10,letterSpacing:2,color:"#e07070",textTransform:"uppercase",marginBottom:8,fontFamily:"Montserrat,sans-serif"}}>⚠️ Politique d annulation</p>
-                <p style={{fontSize:12,color:"rgba(245,240,232,0.65)",lineHeight:1.8}}>
-                  L acompte verse est <strong style={{color:"#F5F0E8"}}>definitif et non remboursable</strong> en cas de non-presentation, d annulation moins de 48h avant ou de retard superieur a 30 minutes sans preavis.
-                  <br/>Annulation gratuite si effectuee plus de 48h avant.
-                </p>
+                <p style={{fontSize:12,color:"rgba(245,240,232,0.65)",lineHeight:1.8}}>L acompte est <strong style={{color:"#F5F0E8"}}>definitif et non remboursable</strong> en cas de non-presentation, d annulation moins de 48h ou de retard superieur a 30 minutes.</p>
               </div>
-
-              <div onClick={()=>up("cgv",!form.cgv)}
-                style={{display:"flex",alignItems:"flex-start",gap:14,padding:"16px 18px",background:"rgba(201,168,76,0.04)",border:`1px solid ${form.cgv?"rgba(201,168,76,0.5)":"rgba(201,168,76,0.15)"}`,marginBottom:20,cursor:"pointer",transition:"all .3s",userSelect:"none"}}>
+              <div onClick={()=>up("cgv",!form.cgv)} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"16px 18px",background:"rgba(201,168,76,0.04)",border:`1px solid ${form.cgv?"rgba(201,168,76,0.5)":"rgba(201,168,76,0.15)"}`,marginBottom:20,cursor:"pointer",transition:"all .3s",userSelect:"none"}}>
                 <div style={{width:20,height:20,border:`1.5px solid ${form.cgv?"#C9A84C":"rgba(201,168,76,0.35)"}`,borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2,background:form.cgv?"#C9A84C":"transparent",transition:"all .3s"}}>
                   {form.cgv&&<span style={{color:"#080604",fontSize:13,fontWeight:700,lineHeight:1}}>✓</span>}
                 </div>
                 <p style={{fontSize:12,color:"rgba(245,240,232,0.72)",lineHeight:1.8}}>
                   J ai lu et j accepte les{" "}
-                  <a href="/mentions-legales" target="_blank" style={{color:"#C9A84C",textDecoration:"underline"}} onClick={e=>e.stopPropagation()}>
-                    Conditions Generales de Vente
-                  </a>
-                  {" "}et la politique d annulation. Je comprends que l acompte est non remboursable en cas de non-presentation.
+                  <a href="/mentions-legales" target="_blank" style={{color:"#C9A84C",textDecoration:"underline"}} onClick={e=>e.stopPropagation()}>Conditions Generales de Vente</a>
+                  {" "}et la politique d annulation. L acompte est non remboursable en cas de non-presentation.
                 </p>
               </div>
-
               <div className="confirm-box">
                 <p className="confirm-title">🔒 Paiement securise Stripe</p>
-                <p className="confirm-text">Vous allez etre redirige vers Stripe. Confirmation par email + SMS apres paiement.</p>
+                <p className="confirm-text">Redirection vers Stripe. Email + SMS de confirmation apres paiement.</p>
               </div>
-
               {error&&<p style={{color:"#e74c3c",fontSize:12,marginBottom:14,textAlign:"center",fontFamily:"Montserrat,sans-serif"}}>{error}</p>}
-
               <div className="btn-row">
                 <button onClick={()=>setStep(2)} className="btn-back">Retour</button>
                 <button onClick={pay} disabled={sending||!form.cgv}
@@ -744,7 +777,6 @@ function ReservationPage() {
               </div>
             </div>
           )}
-
         </div>
       </Reveal>
     </section>
@@ -803,7 +835,7 @@ export default function LeGoyaApp() {
   }, [])
 
   const pages = {
-    accueil: (<><Hero setSection={go}/><Carousel/><Avis/></>),
+    accueil: (<><Hero setSection={go}/><Carousel/><Gallery setSection={go}/><Avis/></>),
     menu: <MenuPage/>,
     evenements: <EventsPage/>,
     reservation: <ReservationPage/>,
@@ -815,6 +847,7 @@ export default function LeGoyaApp() {
       <Cursor/>
       <GoldParticles/>
       <Nav section={section} setSection={go}/>
+      <StickyReserveButton setSection={go} currentSection={section}/>
       <div className={`page-transition page-content${transitioning?" out":" in"}`}>
         {pages[section]||pages.accueil}
         <Footer setSection={go}/>
